@@ -12,5 +12,7 @@
   "purpose_tldr": "Deliver a standalone macOS desktop foundation that preserves the complete official DSH experience and selects the production shell through measured evidence.",
   "slug": "desktop-foundation-01M00X0T",
   "target_branch": "codex/desktop-foundation",
-  "topology": "lanes_with_coord"
+  "topology": "lanes_with_coord",
+  "vcs": "git",
+  "vcs_locked_at": "2026-08-14T21:57:34.931696+00:00"
 }

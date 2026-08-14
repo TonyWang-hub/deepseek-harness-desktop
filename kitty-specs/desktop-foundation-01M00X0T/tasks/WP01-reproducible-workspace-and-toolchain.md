@@ -20,7 +20,7 @@ subtasks:
 - T004
 - T005
 - T006
-agent: codex
+agent: "codex"
 history: []
 agent_profile: node-norris
 authoritative_surface: package.json
@@ -67,6 +67,7 @@ owned_files:
 - docs/architecture.md
 role: implementer
 tags: []
+shell_pid: "79313"
 ---
 
 # WP01: Reproducible Workspace and Toolchain
@@ -319,3 +320,8 @@ Apply test-first discipline to infrastructure. Before each group of files, run o
 Review this WP as a release-input freeze, not routine scaffolding. Confirm every manifest needed by WP02–WP14 exists before approval and that dependency directions match `plan.md`. Inspect every external version spec and both locks for floating or sibling sources. Verify Node and Rust versions agree across toolchain files, manifests, CI, and documentation.
 
 Run the frozen pnpm install and locked Cargo metadata commands from a clean working tree, then confirm a second run creates no diff. Check that CI's macOS job is truly arm64 and that Linux/Windows jobs exercise only platform-neutral surfaces. Finally, verify the documentation and `AGENTS.md` make later manifest/lock edits an explicit gate reopening rather than a casual implementation step.
+
+## Activity Log
+
+- 2026-08-14T21:57:36Z – codex – shell_pid=6716 – Assigned agent via action command
+- 2026-08-14T22:48:18Z – codex – shell_pid=79313 – Implementation commit 333f85a; frozen pnpm/Cargo locks, foundation/neutral gates, and drift negative controls passed.
