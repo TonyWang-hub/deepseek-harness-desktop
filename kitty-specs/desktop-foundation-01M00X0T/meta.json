@@ -7,6 +7,7 @@
   "mission_number": null,
   "mission_slug": "desktop-foundation-01M00X0T",
   "mission_type": "software-dev",
+  "pr_bound": true,
   "purpose_context": "This mission establishes the independently releasable repository, version-pinned upstream payload, compatibility and lifecycle seams, private desktop transport, and identical Tauri and Electron vertical slices. It ends with a reproducible parity, memory, responsiveness, and startup decision rather than a framework-first commitment.",
   "purpose_tldr": "Deliver a standalone macOS desktop foundation that preserves the complete official DSH experience and selects the production shell through measured evidence.",
   "slug": "desktop-foundation-01M00X0T",
