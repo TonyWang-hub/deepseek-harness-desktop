@@ -20,7 +20,7 @@ subtasks:
 - T004
 - T005
 - T006
-agent: "codex"
+agent: "codex-reviewer"
 history: []
 agent_profile: node-norris
 authoritative_surface: package.json
@@ -329,3 +329,5 @@ Run the frozen pnpm install and locked Cargo metadata commands from a clean work
 - 2026-08-14T23:06:39Z – user – shell_pid=6716 – Moved to planned
 - 2026-08-14T23:11:55Z – codex – shell_pid=6716 – Started implementation via action command
 - 2026-08-14T23:31:42Z – codex – shell_pid=6716 – Ready for review: official registry lock, compiled schema/CI negative controls, review-lock-safe gates, narrow Tauri bridge lint, and source-plane aliases
+- 2026-08-14T23:33:28Z – codex-reviewer – shell_pid=6716 – Started review via action command
+- 2026-08-14T23:43:15Z – user – shell_pid=6716 – Review passed: all six cycle-1 findings remediated; frozen Node/Rust inputs, official provenance, review-lock gates, structural negative controls, Tauri boundary lint, source aliases, contracts, and documentation verified.
