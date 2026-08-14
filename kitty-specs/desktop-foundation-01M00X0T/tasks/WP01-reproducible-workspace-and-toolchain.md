@@ -20,7 +20,7 @@ subtasks:
 - T004
 - T005
 - T006
-agent: "codex"
+agent: "codex-reviewer"
 history: []
 agent_profile: node-norris
 authoritative_surface: package.json
@@ -67,7 +67,7 @@ owned_files:
 - docs/architecture.md
 role: implementer
 tags: []
-shell_pid: "79313"
+shell_pid: "6716"
 ---
 
 # WP01: Reproducible Workspace and Toolchain
@@ -325,3 +325,5 @@ Run the frozen pnpm install and locked Cargo metadata commands from a clean work
 
 - 2026-08-14T21:57:36Z – codex – shell_pid=6716 – Assigned agent via action command
 - 2026-08-14T22:48:18Z – codex – shell_pid=79313 – Implementation commit 333f85a; frozen pnpm/Cargo locks, foundation/neutral gates, and drift negative controls passed.
+- 2026-08-14T22:50:24Z – codex-reviewer – shell_pid=6716 – Started review via action command
+- 2026-08-14T23:06:39Z – user – shell_pid=6716 – Moved to planned
