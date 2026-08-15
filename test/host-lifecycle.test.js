@@ -29,13 +29,13 @@ class FakeChild extends EventEmitter {
 
 test('host termination waits for a graceful exit', async () => {
   const child = new FakeChild()
-  await terminateChild(child, { graceMs: 10 })
+  await terminateChild(child, { graceMs: 10, platform: 'darwin' })
   assert.deepEqual(child.signals, ['SIGTERM'])
 })
 
 test('host termination performs SIGKILL before resolving when SIGTERM is ignored', async () => {
   const child = new FakeChild({ resistTerm: true })
-  await terminateChild(child, { graceMs: 1 })
+  await terminateChild(child, { graceMs: 1, platform: 'darwin' })
   assert.deepEqual(child.signals, ['SIGTERM', 'SIGKILL'])
 })
 
