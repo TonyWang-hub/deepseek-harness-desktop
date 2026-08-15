@@ -26,5 +26,11 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Install exact dependencies
         run: npm ci --no-audit --fund=false
+      - name: Prepare Electron runtime
+        run: node build/prepare-electron.js
+      - name: Configure Chromium sandbox
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - name: Run source tests
         run: xvfb-run --auto-servernum npm test
