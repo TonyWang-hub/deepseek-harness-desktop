@@ -12,7 +12,7 @@
  * DSH_DESKTOP_NODE=/path/to/node to run the host on an external runtime
  * instead — the smoke run is where such a mismatch shows up first.
  */
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -86,9 +86,11 @@ function startHost() {
     }
     const wait = backoffMs
     backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS)
-    win?.loadURL(SPLASH).catch(() => {})
-    dialog.showErrorBox('DeepSeek Harness host exited',
-      `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}). Restarting in ${wait / 1000}s…`)
+    const detail = `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}). Restarting in ${wait / 1000}s…`
+    const restartPage = 'data:text/html,' + encodeURIComponent(
+      '<body style="background:#111;color:#ddd;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0">'
+      + `<div>${detail}</div></body>`)
+    win?.loadURL(restartPage).catch(() => {})
     setTimeout(() => { if (!quitting) startHost() }, wait)
   })
 }

@@ -53,6 +53,22 @@ async function childPids(parentPid) {
     .map(([pid]) => pid)
 }
 
+async function hostPid(parentPid) {
+  const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,command='])
+  for (const line of stdout.trim().split('\n')) {
+    const match = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line)
+    if (match && Number(match[2]) === parentPid
+      && /@deepseek-ai\/dsh\/lib\/bin\.js web --port 0/.test(match[3])) {
+      return Number(match[1])
+    }
+  }
+  return undefined
+}
+
+function readyUrls(output) {
+  return [...output.matchAll(/dsh web:\s+(http:\/\/127\.0\.0\.1:\d+)/g)].map(match => match[1])
+}
+
 async function stopProcessTree(child) {
   if (!child.pid) return
   for (const pid of await childPids(child.pid)) {
@@ -82,6 +98,37 @@ test('smoke rejects a false pass while another instance owns the app lock', { ti
     assert.match(second.output(), /SMOKE FAIL: another instance is already running/)
   } finally {
     await stopProcessTree(first.child)
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('an unexpectedly killed host restarts without waiting for user input', { timeout: 120_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-restart-'))
+  const desktop = launch([], testRoot)
+  try {
+    const firstUrl = await waitUntil(() => readyUrls(desktop.output())[0], 'first host readiness')
+    const firstHostPid = await waitUntil(() => hostPid(desktop.child.pid), 'first host process')
+
+    process.kill(firstHostPid, 'SIGKILL')
+
+    let secondUrl
+    try {
+      secondUrl = await waitUntil(() => readyUrls(desktop.output())[1], 'replacement host readiness', 15_000)
+    } catch (error) {
+      error.message += `\nmain exit=${desktop.child.exitCode} signal=${desktop.child.signalCode}\n${desktop.output()}`
+      throw error
+    }
+    const secondHostPid = await waitUntil(async () => {
+      const pid = await hostPid(desktop.child.pid)
+      return pid && pid !== firstHostPid ? pid : undefined
+    }, 'replacement host process')
+
+    assert.equal(desktop.child.exitCode, null)
+    assert.notEqual(secondHostPid, firstHostPid)
+    assert.notEqual(secondUrl, firstUrl)
+    assert.equal((await fetch(secondUrl)).ok, true)
+  } finally {
+    await stopProcessTree(desktop.child)
     await rm(testRoot, { recursive: true, force: true })
   }
 })
