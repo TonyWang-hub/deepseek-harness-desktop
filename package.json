@@ -1,20 +1,70 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Unofficial Electron shell for DeepSeek Harness — the pinned official payload, a supervised host, one window.",
   "type": "module",
   "main": "src/main.js",
   "license": "MIT",
+  "author": "TonyWang-hub",
+  "engines": {
+    "node": ">=24.17.0 <25"
+  },
+  "repository": "github:TonyWang-hub/deepseek-harness-desktop",
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:packaged": "node --test acceptance/packaged.test.js",
+    "dist:mac:arm64": "node build/build-mac.js arm64",
+    "dist:mac:x64": "node build/build-mac.js x64",
+    "merge:mac:update": "node build/merge-mac-update-info.js"
   },
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.0-rc.6"
+    "@deepseek-ai/dsh": "0.1.0-rc.6",
+    "electron-updater": "6.8.9",
+    "pnpm": "11.21.0"
   },
   "devDependencies": {
-    "electron": "^38.2.0"
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3",
+    "js-yaml": "4.3.1"
+  },
+  "build": {
+    "appId": "io.github.tonywanghub.deepseek-harness-desktop",
+    "productName": "DeepSeek Harness Desktop",
+    "artifactName": "DeepSeek-Harness-Desktop-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "bin/**/*"
+    ],
+    "asar": false,
+    "afterPack": "build/after-pack.js",
+    "afterSign": "build/after-sign.js",
+    "forceCodeSigning": true,
+    "electronUpdaterCompatibility": ">=2.16",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": true,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TonyWang-hub",
+        "repo": "deepseek-harness-desktop",
+        "releaseType": "draft"
+      }
+    ]
   }
 }

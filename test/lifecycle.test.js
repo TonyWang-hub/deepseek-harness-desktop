@@ -65,6 +65,16 @@ async function hostPid(parentPid) {
   return undefined
 }
 
+function processExists(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if (error.code === 'ESRCH') return false
+    throw error
+  }
+}
+
 function readyUrls(output) {
   return [...output.matchAll(/dsh web:\s+(http:\/\/127\.0\.0\.1:\d+)/g)].map(match => match[1])
 }
@@ -126,8 +136,43 @@ test('an unexpectedly killed host restarts without waiting for user input', { ti
     assert.equal(desktop.child.exitCode, null)
     assert.notEqual(secondHostPid, firstHostPid)
     assert.notEqual(secondUrl, firstUrl)
-    assert.equal((await fetch(secondUrl)).ok, true)
+    let httpReady
+    try {
+      httpReady = await waitUntil(async () => {
+        try {
+          return (await fetch(secondUrl)).ok
+        } catch {
+          return false
+        }
+      }, 'replacement host HTTP readiness', 15_000)
+    } catch (error) {
+      error.message += `\nmain exit=${desktop.child.exitCode} signal=${desktop.child.signalCode}`
+        + `\ncurrent host=${await hostPid(desktop.child.pid)}`
+        + `\nready URLs=${JSON.stringify(readyUrls(desktop.output()))}`
+        + `\n${desktop.output()}`
+      throw error
+    }
+    assert.equal(httpReady, true)
   } finally {
+    await stopProcessTree(desktop.child)
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('the host exits when its desktop parent is killed', { timeout: 120_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-parent-death-'))
+  const desktop = launch([], testRoot)
+  let childHostPid
+  try {
+    const url = await waitUntil(() => readyUrls(desktop.output())[0], 'host readiness')
+    childHostPid = await waitUntil(() => hostPid(desktop.child.pid), 'host process')
+
+    process.kill(desktop.child.pid, 'SIGKILL')
+    await waitForExit(desktop.child)
+    await waitUntil(() => !processExists(childHostPid), 'host exit after parent death', 10_000)
+    await assert.rejects(fetch(url))
+  } finally {
+    if (childHostPid && processExists(childHostPid)) process.kill(childHostPid, 'SIGTERM')
     await stopProcessTree(desktop.child)
     await rm(testRoot, { recursive: true, force: true })
   }

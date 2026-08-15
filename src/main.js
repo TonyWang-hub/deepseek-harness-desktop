@@ -12,15 +12,26 @@
  * DSH_DESKTOP_NODE=/path/to/node to run the host on an external runtime
  * instead — the smoke run is where such a mismatch shows up first.
  */
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Notification, shell } from 'electron'
+import electronUpdater from 'electron-updater'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { createHostEnvironment } from './host-environment.js'
+import { terminateChild } from './host-lifecycle.js'
+import { runAutoUpdateCheck } from './updater.js'
+import { installWindowSecurity } from './window-security.js'
 
 const require = createRequire(import.meta.url)
+const { autoUpdater } = electronUpdater
+const reportUpdateError = error => console.error('Auto-update failed:', error)
+autoUpdater.on('error', reportUpdateError)
 
 /** Absolute path of the pinned payload's CLI entry (resolved, never guessed; the package ships no exports map, so the classic subpath applies). */
 const DSH_BIN = require.resolve('@deepseek-ai/dsh/lib/bin.js')
+/** Clears Electron's Node-mode marker before the official host loads or spawns user commands. */
+const HOST_BOOTSTRAP = fileURLToPath(new URL('./host-bootstrap.js', import.meta.url))
 
 /** Matches the host's readiness line, e.g. `dsh web: http://127.0.0.1:52144`. */
 const READY_LINE = /dsh web:\s+(http:\/\/127\.0\.0\.1:\d+)/
@@ -39,6 +50,9 @@ let win
 let hostUrl = ''
 let backoffMs = BACKOFF_BASE_MS
 let quitting = false
+let quitReady = false
+let quitPromise
+let hostStopPromise
 
 /** Minimal splash shown until the host's readiness line arrives. */
 const SPLASH = 'data:text/html,' + encodeURIComponent(
@@ -51,14 +65,18 @@ const SPLASH = 'data:text/html,' + encodeURIComponent(
  */
 function startHost() {
   const nodeOverride = process.env.DSH_DESKTOP_NODE
-  const [cmd, args] = nodeOverride
-    ? [nodeOverride, [DSH_BIN, 'web', '--port', '0']]
-    : [process.execPath, [DSH_BIN, 'web', '--port', '0']]
+  const cmd = nodeOverride || process.execPath
+  const args = ['--expose-internals', HOST_BOOTSTRAP, DSH_BIN, 'web', '--port', '0']
+  const env = createHostEnvironment({
+    appPath: app.getAppPath(),
+    electronPath: process.execPath,
+    baseEnv: process.env,
+    nodeOverride,
+  })
+  env.HARNESS_DESKTOP_PARENT_FD = '3'
   host = spawn(cmd, args, {
-    env: nodeOverride
-      ? { ...process.env }
-      : { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    env,
+    stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
   })
   let sawReady = false
 
@@ -95,14 +113,24 @@ function startHost() {
   })
 }
 
-/** SIGTERM the host, escalate to SIGKILL after {@link KILL_TIMEOUT_MS}. */
+/** SIGTERM the host, await exit, and escalate to SIGKILL after {@link KILL_TIMEOUT_MS}. */
 function stopHost() {
+  if (hostStopPromise) return hostStopPromise
   const h = host
-  if (!h) return
+  if (!h) return Promise.resolve()
   host = undefined
-  h.kill('SIGTERM')
-  const killer = setTimeout(() => h.kill('SIGKILL'), KILL_TIMEOUT_MS)
-  h.on('exit', () => clearTimeout(killer))
+  hostStopPromise = terminateChild(h, { graceMs: KILL_TIMEOUT_MS })
+    .finally(() => { hostStopPromise = undefined })
+  return hostStopPromise
+}
+
+function exitAfterHost(code) {
+  if (quitPromise) return quitPromise
+  quitting = true
+  quitPromise = stopHost()
+    .catch(error => console.error('Host shutdown failed:', error))
+    .then(() => app.exit(code))
+  return quitPromise
 }
 
 function createWindow() {
@@ -113,13 +141,16 @@ function createWindow() {
     backgroundColor: '#111111',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
+  installWindowSecurity({
+    window: win,
+    getHostUrl: () => hostUrl,
+    openExternal: url => shell.openExternal(url),
+  })
   win.on('closed', () => { win = undefined })
   win.webContents.on('did-finish-load', () => {
     if (SMOKE && hostUrl && win?.webContents.getURL().startsWith(hostUrl)) {
       console.log('SMOKE OK', hostUrl)
-      quitting = true
-      stopHost()
-      app.exit(0)
+      void exitAfterHost(0)
     }
   })
   void win.loadURL(hostUrl || SPLASH)
@@ -140,12 +171,37 @@ if (!lock) {
   app.whenReady().then(() => {
     startHost()
     createWindow()
-    if (SMOKE) setTimeout(() => { console.error('SMOKE FAIL: timeout'); app.exit(1) }, 90_000)
+    void runAutoUpdateCheck({
+      isPackaged: app.isPackaged,
+      isSmoke: SMOKE,
+      checkForUpdates: () => autoUpdater.checkForUpdates(),
+      notifyDownloaded: updateInfo => {
+        if (!Notification.isSupported()) return
+        new Notification({
+          title: 'A new update is ready to install',
+          body: `DeepSeek Harness Desktop ${updateInfo.version} will be installed on exit.`,
+        }).show()
+      },
+      reportError: reportUpdateError,
+    })
+    if (SMOKE) setTimeout(() => {
+      console.error('SMOKE FAIL: timeout')
+      void exitAfterHost(1)
+    }, 90_000)
   })
   app.on('window-all-closed', () => {
-    quitting = true
-    stopHost()
     app.quit()
   })
-  app.on('before-quit', () => { quitting = true; stopHost() })
+  app.on('before-quit', event => {
+    if (quitReady) return
+    event.preventDefault()
+    quitting = true
+    if (quitPromise) return
+    quitPromise = stopHost()
+      .catch(error => console.error('Host shutdown failed:', error))
+      .then(() => {
+        quitReady = true
+        app.quit()
+      })
+  })
 }

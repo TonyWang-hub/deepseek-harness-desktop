@@ -14,10 +14,10 @@
 
 从旧规划回收的三项资产已并入本方案：官方载荷不可修改原则（D2）、宿主监督者需求（v0.1 验收 3/4/5）、fixture 对等回放（→ v0.3 CI 门）。
 
-## v0.1 纵切（当前）
+## v0.1 纵切（已完成）
 
 ```text
-src/main.js     Electron 主进程（唯一产品文件）：
+src/main.js     Electron 主进程：
                 spawn(ELECTRON_RUN_AS_NODE → node_modules/@deepseek-ai/dsh, web --port 0)
                 → 解析就绪行 "dsh web: http://127.0.0.1:<port>"
                 → BrowserWindow.loadURL；就绪前显示启动页
@@ -39,8 +39,27 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - **原生模块 ABI**：dsh 依赖若含 native addon，Electron 的 Node ABI 可能不匹配 → 兜底：`DSH_DESKTOP_NODE=<path>` 环境变量切换到外部 Node 运行宿主（smoke 会立即暴露此问题）
 - 就绪行格式变更（上游升级时）→ smoke 失败即报警，改一行解析
 
+## v0.2 打包（发布候选已完成）
+
+- 版本为 `0.2.0`：Electron `43.4.0` + 未修改的 `@deepseek-ai/dsh@0.1.0-rc.6` + 内置 `pnpm@11.21.0`。
+- arm64/x64 按架构独立干净安装与打包；每次构建自动验收完整 production tree、干净 `$DSH_HOME` smoke、pnpm、ripgrep、Sharp、Koffi、node-pty 和真实 PTY。
+- Host 正常退出等待 SIGTERM→SIGKILL；桌面主进程崩溃时，fd3 生存期通道保证 Host 不变成孤儿进程。
+- 窗口禁止非本地导航、新窗口与非必要权限；自动更新不阻塞启动，下载失败可控。
+- 正式构建强制校验签名、Gatekeeper 和 stapled notarization ticket；只有显式 `HARNESS_DESKTOP_ALLOW_UNSIGNED=1` 才能生成本地测试包。
+
+### 2026-08-15 实测结果
+
+- 源码测试 `28/28` 通过，npm audit `0` 漏洞。
+- arm64 与 x64 的 packaged acceptance 各 `3/3` 通过；两架构 DMG/ZIP 完整性、Mach-O 架构、挂载 DMG 后冷启动 smoke、端口释放与无残留进程均通过。
+- `dist/latest-mac.yml` 已合并两架构 ZIP/DMG，并逐件校验文件大小与 SHA-512。
+
+### 正式发布前置
+
+- 需要 Developer ID Application 证书和 Apple notarization 凭据；当前候选包是功能验收用 unsigned 产物，不冒充正式签名包。
+- 需要创建 `TonyWang-hub/deepseek-harness-desktop` 公开仓库和 GitHub Release，上传合并后的 `latest-mac.yml`、两架构 ZIP/DMG 及 blockmap，再做一次旧版→新版真实更新。完成前，自动更新客户端已实现，但 feed 尚不存在。
+
 ## 路线图
 
-- **v0.2 打包**：electron-builder → dmg（arm64/x64）、签名+公证、载荷随包分发（离线安装）、自动更新
+- **v0.2 打包**：代码与双架构 unsigned 候选已完成；签名/公证和 GitHub Release 等待上述外部凭据与仓库
 - **v0.3 体验**：托盘、Dock 菜单、崩溃恢复打磨、fixture 对等回放进 CI（回收资产③）
 - **v0.4 评估**：仅当内存数据构成用户问题时，启动 Tauri challenger 对比（回收旧规划的评测框架思路）
