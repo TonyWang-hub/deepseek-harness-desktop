@@ -73,9 +73,22 @@ export function packagedAppPath(projectDir, target) {
   return path.join(projectDir, 'dist', target, outputDirectory, 'DeepSeek Harness Desktop.app')
 }
 
+/**
+ * Resolve the disk image produced by electron-builder for one macOS architecture.
+ *
+ * @param {string} projectDir
+ * @param {'arm64' | 'x64'} target
+ * @param {string} version
+ * @returns {string}
+ */
+export function packagedDmgPath(projectDir, target, version) {
+  return path.join(projectDir, 'dist', target, `DeepSeek-Harness-Desktop-${version}-mac-${target}.dmg`)
+}
+
 async function main() {
   const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const target = process.argv[2]
+  const packageMetadata = JSON.parse(await readFile(path.join(projectDir, 'package.json'), 'utf8'))
   await assertMacTargetInstall({
     projectDir,
     target,
@@ -104,6 +117,7 @@ async function main() {
     env: {
       ...process.env,
       DSH_DESKTOP_PACKAGED_APP: packagedAppPath(projectDir, target),
+      DSH_DESKTOP_PACKAGED_DMG: packagedDmgPath(projectDir, target, packageMetadata.version),
     },
     stdio: 'inherit',
   })

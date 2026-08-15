@@ -9,10 +9,38 @@ import test from 'node:test'
 
 const execFileAsync = promisify(execFile)
 const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const packageVersion = JSON.parse(await readFile(path.join(projectDir, 'package.json'), 'utf8')).version
 const appBundle = process.env.DSH_DESKTOP_PACKAGED_APP
   ?? path.join(projectDir, 'dist/arm64/mac-arm64/DeepSeek Harness Desktop.app')
+const packagedDmg = process.env.DSH_DESKTOP_PACKAGED_DMG
+  ?? path.join(projectDir, `dist/arm64/DeepSeek-Harness-Desktop-${packageVersion}-mac-arm64.dmg`)
 const appRoot = path.join(appBundle, 'Contents/Resources/app')
 const appExecutable = path.join(appBundle, 'Contents/MacOS/DeepSeek Harness Desktop')
+
+test('the packaged app uses the project macOS icon', async () => {
+  const plist = path.join(appBundle, 'Contents/Info.plist')
+  const result = await execFileAsync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', plist])
+  assert.equal(result.stdout.trim(), 'icon.icns')
+
+  const source = await readFile(path.join(projectDir, 'build/icon.icns'))
+  const packaged = await readFile(path.join(appBundle, 'Contents/Resources/icon.icns'))
+  assert.deepEqual(packaged, source)
+})
+
+test('the packaged disk image uses the project volume icon', async () => {
+  const mountRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-dmg-icon-'))
+  let mounted = false
+  try {
+    await execFileAsync('hdiutil', ['attach', '-readonly', '-nobrowse', '-mountpoint', mountRoot, packagedDmg])
+    mounted = true
+    const source = await readFile(path.join(projectDir, 'build/icon.icns'))
+    const packaged = await readFile(path.join(mountRoot, '.VolumeIcon.icns'))
+    assert.deepEqual(packaged, source)
+  } finally {
+    if (mounted) await execFileAsync('hdiutil', ['detach', mountRoot])
+    await rm(mountRoot, { recursive: true, force: true })
+  }
+})
 
 async function exists(filename) {
   try {

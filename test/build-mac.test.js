@@ -9,6 +9,7 @@ import {
   builderArguments,
   builderEnvironment,
   packagedAppPath,
+  packagedDmgPath,
 } from '../build/build-mac.js'
 
 const requiredPackages = arch => [
@@ -74,5 +75,13 @@ test('macOS builds use architecture-isolated output and explicit unsigned opt-in
   assert.equal(
     packagedAppPath('/checkout', 'x64'),
     '/checkout/dist/x64/mac/DeepSeek Harness Desktop.app',
+  )
+  assert.equal(
+    packagedDmgPath('/checkout', 'arm64', '0.2.0'),
+    '/checkout/dist/arm64/DeepSeek-Harness-Desktop-0.2.0-mac-arm64.dmg',
+  )
+  assert.equal(
+    packagedDmgPath('/checkout', 'x64', '0.2.0'),
+    '/checkout/dist/x64/DeepSeek-Harness-Desktop-0.2.0-mac-x64.dmg',
   )
 })

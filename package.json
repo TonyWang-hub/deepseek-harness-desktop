@@ -50,6 +50,7 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
+      "icon": "build/icon.icns",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "notarize": true,
@@ -57,6 +58,9 @@
         "dmg",
         "zip"
       ]
+    },
+    "dmg": {
+      "icon": "build/icon.icns"
     },
     "publish": [
       {

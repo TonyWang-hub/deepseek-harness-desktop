@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Terminal loop</title>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="#000000"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M350 236h246c146 0 252 106 252 252v48c0 146-106 252-252 252H424l-116 72 34-108" stroke-width="76"/>
+    <path d="m286 382 142 130-142 130" stroke-width="92"/>
+    <path d="M520 642h178" stroke-width="92"/>
+  </g>
+</svg>

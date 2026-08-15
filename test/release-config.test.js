@@ -3,9 +3,78 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { inflateSync } from 'node:zlib'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const readJson = async relativePath => JSON.parse(await readFile(path.join(appRoot, relativePath), 'utf8'))
+
+function paeth(left, up, upperLeft) {
+  const estimate = left + up - upperLeft
+  const leftDistance = Math.abs(estimate - left)
+  const upDistance = Math.abs(estimate - up)
+  const upperLeftDistance = Math.abs(estimate - upperLeft)
+  return leftDistance <= upDistance && leftDistance <= upperLeftDistance
+    ? left
+    : upDistance <= upperLeftDistance ? up : upperLeft
+}
+
+function pngHasTransparentPixel(png) {
+  const width = png.readUInt32BE(16)
+  const height = png.readUInt32BE(20)
+  const bytesPerPixel = 4
+  const idat = []
+  for (let offset = 8; offset < png.length;) {
+    const length = png.readUInt32BE(offset)
+    const type = png.subarray(offset + 4, offset + 8).toString('ascii')
+    if (type === 'IDAT') idat.push(png.subarray(offset + 8, offset + 8 + length))
+    offset += length + 12
+  }
+
+  const encoded = inflateSync(Buffer.concat(idat))
+  const stride = width * bytesPerPixel
+  const decoded = Buffer.alloc(stride * height)
+  for (let y = 0, inputOffset = 0; y < height; y += 1) {
+    const filter = encoded[inputOffset]
+    inputOffset += 1
+    const rowOffset = y * stride
+    for (let x = 0; x < stride; x += 1) {
+      const raw = encoded[inputOffset + x]
+      const left = x >= bytesPerPixel ? decoded[rowOffset + x - bytesPerPixel] : 0
+      const up = y > 0 ? decoded[rowOffset - stride + x] : 0
+      const upperLeft = y > 0 && x >= bytesPerPixel
+        ? decoded[rowOffset - stride + x - bytesPerPixel]
+        : 0
+      const predictor = filter === 0 ? 0
+        : filter === 1 ? left
+          : filter === 2 ? up
+            : filter === 3 ? Math.floor((left + up) / 2)
+              : filter === 4 ? paeth(left, up, upperLeft)
+                : NaN
+      assert.equal(Number.isNaN(predictor), false, `unsupported PNG filter ${filter}`)
+      decoded[rowOffset + x] = (raw + predictor) & 0xff
+    }
+    inputOffset += stride
+  }
+  for (let offset = 3; offset < decoded.length; offset += bytesPerPixel) {
+    if (decoded[offset] < 255) return true
+  }
+  return false
+}
+
+function icnsChunkTypes(icns) {
+  const types = []
+  let offset = 8
+  while (offset < icns.length) {
+    const type = icns.subarray(offset, offset + 4).toString('ascii')
+    const length = icns.readUInt32BE(offset + 4)
+    assert.ok(length >= 8, `${type} chunk is shorter than its header`)
+    assert.ok(offset + length <= icns.length, `${type} chunk exceeds the ICNS file`)
+    types.push(type)
+    offset += length
+  }
+  assert.equal(offset, icns.length)
+  return types
+}
 
 test('release dependencies and macOS packaging stay exact and self-contained', async () => {
   const pkg = await readJson('package.json')
@@ -32,6 +101,8 @@ test('release dependencies and macOS packaging stay exact and self-contained', a
   assert.equal(pkg.build.artifactName, 'DeepSeek-Harness-Desktop-${version}-${os}-${arch}.${ext}')
   assert.deepEqual(pkg.build.mac.target, ['dmg', 'zip'])
   assert.equal(pkg.build.mac.notarize, true)
+  assert.equal(pkg.build.mac.icon, 'build/icon.icns')
+  assert.equal(pkg.build.dmg.icon, 'build/icon.icns')
   assert.deepEqual(pkg.build.files, ['src/**/*', 'bin/**/*'])
   assert.deepEqual(pkg.build.publish, [{
     provider: 'github',
@@ -39,6 +110,30 @@ test('release dependencies and macOS packaging stay exact and self-contained', a
     repo: 'deepseek-harness-desktop',
     releaseType: 'draft',
   }])
+})
+
+test('the app icon is a deterministic monochrome macOS asset', async () => {
+  const svg = await readFile(path.join(appRoot, 'build/icon.svg'), 'utf8')
+  const png = await readFile(path.join(appRoot, 'build/icon-1024.png'))
+  const icns = await readFile(path.join(appRoot, 'build/icon.icns'))
+
+  assert.match(svg, /viewBox="0 0 1024 1024"/)
+  assert.match(svg, /<title>Terminal loop<\/title>/)
+  assert.doesNotMatch(svg, /gradient|filter|<text|<image|href=/i)
+  assert.deepEqual(new Set(svg.match(/#[0-9a-f]{6}/gi)), new Set(['#000000', '#ffffff']))
+
+  assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10])
+  assert.equal(png.readUInt32BE(16), 1024)
+  assert.equal(png.readUInt32BE(20), 1024)
+  assert.equal(png[24], 8)
+  assert.equal(png[25], 6)
+  assert.equal(pngHasTransparentPixel(png), true)
+
+  assert.equal(icns.subarray(0, 4).toString('ascii'), 'icns')
+  assert.equal(icns.readUInt32BE(4), icns.length)
+  assert.deepEqual(icnsChunkTypes(icns).sort(), [
+    'ic04', 'ic05', 'ic07', 'ic08', 'ic09', 'ic10', 'ic11', 'ic12', 'ic13', 'ic14', 'info',
+  ])
 })
 
 test('the release lock resolves packages only from the official npm registry', async () => {
