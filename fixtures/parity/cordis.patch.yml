@@ -1,0 +1,13 @@
+- id: agent-default-model
+  config:
+    provider: parity
+    model: parity-model
+
+- id: session-title-llm
+  disabled: true
+
+- insert:
+    - id: parity-probe
+      name: '@dsh-desktop/parity-probe'
+      config:
+        workspace: !!js process.env.PARITY_WORKSPACE

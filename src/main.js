@@ -29,6 +29,7 @@ import {
   installWindowResidency,
   showDesktopWindow,
 } from './desktop-shell.js'
+import { hostArguments } from './host-command.js'
 import { createHostEnvironment } from './host-environment.js'
 import { terminateChild } from './host-lifecycle.js'
 import { runAutoUpdateCheck } from './updater.js'
@@ -48,6 +49,8 @@ const HOST_BOOTSTRAP = fileURLToPath(new URL('./host-bootstrap.js', import.meta.
 const READY_LINE = /dsh web:\s+(http:\/\/127\.0\.0\.1:\d+)/
 
 const SMOKE = process.argv.includes('--smoke')
+const FIXTURE_PARITY = process.argv.includes('--fixture-parity')
+const FIXTURE_PARITY_PATCH = fileURLToPath(new URL('../fixtures/parity/cordis.patch.yml', import.meta.url))
 /** SIGTERM → SIGKILL escalation window for host teardown, ms. */
 const KILL_TIMEOUT_MS = 5000
 /** Host crash circuit: stop after three exits inside one minute. */
@@ -83,7 +86,11 @@ const SPLASH = 'data:text/html,' + encodeURIComponent(
 function startHost() {
   const nodeOverride = process.env.DSH_DESKTOP_NODE
   const cmd = nodeOverride || process.execPath
-  const args = ['--expose-internals', HOST_BOOTSTRAP, DSH_BIN, 'web', '--port', '0']
+  const args = hostArguments({
+    bootstrap: HOST_BOOTSTRAP,
+    dshBin: DSH_BIN,
+    patchFiles: FIXTURE_PARITY ? [FIXTURE_PARITY_PATCH] : [],
+  })
   const env = createHostEnvironment({
     appPath: app.getAppPath(),
     electronPath: process.execPath,

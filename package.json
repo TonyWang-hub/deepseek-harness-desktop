@@ -16,6 +16,7 @@
     "smoke": "electron . --smoke",
     "pretest": "node build/prepare-electron.js",
     "test": "node --test test/*.test.js",
+    "test:fixture-parity": "node --test acceptance/fixture-parity.test.js",
     "test:packaged": "node --test acceptance/packaged.test.js",
     "dist:mac:arm64": "node build/build-mac.js arm64",
     "dist:mac:x64": "node build/build-mac.js x64",
@@ -27,9 +28,11 @@
     "pnpm": "11.21.0"
   },
   "devDependencies": {
+    "@dsh-desktop/parity-probe": "file:fixtures/plugins/parity-probe",
     "electron": "43.4.0",
     "electron-builder": "26.15.3",
-    "js-yaml": "4.3.1"
+    "js-yaml": "4.3.1",
+    "playwright-core": "1.62.1"
   },
   "build": {
     "appId": "io.github.tonywanghub.deepseek-harness-desktop",

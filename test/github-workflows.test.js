@@ -41,6 +41,7 @@ test('CI runs the source suite without release credentials', async () => {
       'node build/prepare-electron.js',
       'sudo chown root:root node_modules/electron/dist/chrome-sandbox\nsudo chmod 4755 node_modules/electron/dist/chrome-sandbox\n',
       'xvfb-run --auto-servernum npm test',
+      'xvfb-run --auto-servernum npm run test:fixture-parity',
     ],
   )
   assert.doesNotMatch(JSON.stringify(workflow), /secrets\.|CSC_|APPLE_|GH_TOKEN/)

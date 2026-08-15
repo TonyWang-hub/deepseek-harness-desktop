@@ -34,3 +34,5 @@ jobs:
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - name: Run source tests
         run: xvfb-run --auto-servernum npm test
+      - name: Run browser-to-desktop fixture parity
+        run: xvfb-run --auto-servernum npm run test:fixture-parity
