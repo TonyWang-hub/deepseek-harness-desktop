@@ -12,12 +12,23 @@
  * DSH_DESKTOP_NODE=/path/to/node to run the host on an external runtime
  * instead — the smoke run is where such a mismatch shows up first.
  */
-import { app, BrowserWindow, Notification, shell } from 'electron'
+import { app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray } from 'electron'
 import electronUpdater from 'electron-updater'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
+import {
+  createCrashPage,
+  createCrashRecovery,
+  installCrashActions,
+} from './crash-recovery.js'
+import {
+  desktopIconPath,
+  installDesktopMenus,
+  installWindowResidency,
+  showDesktopWindow,
+} from './desktop-shell.js'
 import { createHostEnvironment } from './host-environment.js'
 import { terminateChild } from './host-lifecycle.js'
 import { runAutoUpdateCheck } from './updater.js'
@@ -39,16 +50,22 @@ const READY_LINE = /dsh web:\s+(http:\/\/127\.0\.0\.1:\d+)/
 const SMOKE = process.argv.includes('--smoke')
 /** SIGTERM → SIGKILL escalation window for host teardown, ms. */
 const KILL_TIMEOUT_MS = 5000
-/** Host crash restart backoff: base, factor 2, cap — resets on readiness. */
-const BACKOFF_BASE_MS = 500
-const BACKOFF_MAX_MS = 10_000
+/** Host crash circuit: stop after three exits inside one minute. */
+const crashRecovery = createCrashRecovery({
+  baseDelayMs: 500,
+  maxDelayMs: 10_000,
+  crashWindowMs: 60_000,
+  crashLimit: 3,
+})
 
 /** @type {import('node:child_process').ChildProcess | undefined} */
 let host
 /** @type {BrowserWindow | undefined} */
 let win
+/** @type {Tray | undefined} */
+let tray
 let hostUrl = ''
-let backoffMs = BACKOFF_BASE_MS
+let restartTimer
 let quitting = false
 let quitReady = false
 let quitPromise
@@ -86,7 +103,6 @@ function startHost() {
     const m = READY_LINE.exec(text)
     if (m && !sawReady) {
       sawReady = true
-      backoffMs = BACKOFF_BASE_MS
       hostUrl = m[1]
       void win?.loadURL(hostUrl)
     }
@@ -102,19 +118,32 @@ function startHost() {
       app.exit(1)
       return
     }
-    const wait = backoffMs
-    backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS)
-    const detail = `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}). Restarting in ${wait / 1000}s…`
-    const restartPage = 'data:text/html,' + encodeURIComponent(
-      '<body style="background:#111;color:#ddd;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0">'
-      + `<div>${detail}</div></body>`)
-    win?.loadURL(restartPage).catch(() => {})
-    setTimeout(() => { if (!quitting) startHost() }, wait)
+    const decision = crashRecovery.recordExit()
+    const detail = `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}).`
+    if (decision.action === 'stop') {
+      win?.loadURL(createCrashPage({ detail })).catch(() => {})
+      return
+    }
+    win?.loadURL(createCrashPage({ detail, retryDelayMs: decision.delayMs })).catch(() => {})
+    restartTimer = setTimeout(() => {
+      restartTimer = undefined
+      if (!quitting) startHost()
+    }, decision.delayMs)
   })
+}
+
+function retryHost() {
+  if (quitting || host) return
+  if (restartTimer) clearTimeout(restartTimer)
+  restartTimer = undefined
+  crashRecovery.reset()
+  startHost()
 }
 
 /** SIGTERM the host, await exit, and escalate to SIGKILL after {@link KILL_TIMEOUT_MS}. */
 function stopHost() {
+  if (restartTimer) clearTimeout(restartTimer)
+  restartTimer = undefined
   if (hostStopPromise) return hostStopPromise
   const h = host
   if (!h) return Promise.resolve()
@@ -141,11 +170,17 @@ function createWindow() {
     backgroundColor: '#111111',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
+  installCrashActions({
+    webContents: win.webContents,
+    retry: retryHost,
+    quit: () => app.quit(),
+  })
   installWindowSecurity({
     window: win,
     getHostUrl: () => hostUrl,
     openExternal: url => shell.openExternal(url),
   })
+  installWindowResidency({ window: win, isQuitting: () => quitting })
   win.on('closed', () => { win = undefined })
   win.webContents.on('did-finish-load', () => {
     if (SMOKE && hostUrl && win?.webContents.getURL().startsWith(hostUrl)) {
@@ -154,6 +189,16 @@ function createWindow() {
     }
   })
   void win.loadURL(hostUrl || SPLASH)
+  return win
+}
+
+function showWindow() {
+  showDesktopWindow({
+    getWindow: () => win,
+    createWindow,
+    platform: process.platform,
+    focusApp: () => app.focus({ steal: true }),
+  })
 }
 
 const lock = app.requestSingleInstanceLock()
@@ -161,16 +206,28 @@ if (!lock) {
   if (SMOKE) console.error('SMOKE FAIL: another instance is already running')
   process.exit(SMOKE ? 1 : 0)
 } else {
-  app.on('second-instance', () => {
-    if (!win) return
-    if (win.isMinimized()) win.restore()
-    win.show()
-    if (process.platform === 'darwin') app.focus({ steal: true })
-    win.focus()
-  })
+  app.on('second-instance', showWindow)
+  app.on('activate', showWindow)
   app.whenReady().then(() => {
     startHost()
     createWindow()
+    if (!SMOKE) {
+      tray = installDesktopMenus({
+        app,
+        Menu,
+        Tray,
+        nativeImage,
+        platform: process.platform,
+        iconPath: desktopIconPath({
+          appPath: app.getAppPath(),
+          resourcesPath: process.resourcesPath,
+          isPackaged: app.isPackaged,
+          platform: process.platform,
+        }),
+        showWindow,
+        quit: () => app.quit(),
+      })
+    }
     void runAutoUpdateCheck({
       isPackaged: app.isPackaged,
       isSmoke: SMOKE,
@@ -188,9 +245,6 @@ if (!lock) {
       console.error('SMOKE FAIL: timeout')
       void exitAfterHost(1)
     }, 90_000)
-  })
-  app.on('window-all-closed', () => {
-    app.quit()
   })
   app.on('before-quit', event => {
     if (quitReady) return
