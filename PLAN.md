@@ -69,7 +69,9 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 代码、原创图标、双架构 unsigned 候选、GitHub CI/Release 自动化与中英文发布说明已完成；签名、公证与首个 GitHub Release 由独立发布任务等待上述 Apple 凭据，不阻塞后续版本开发。
 
-### v0.3 — 桌面体验与跨平台基础
+### v0.3 — 桌面体验与跨平台基础（已完成）
+
+版本为 `0.3.0`；继续使用 Electron `43.4.0`、未修改的 `@deepseek-ai/dsh@0.1.0-rc.6` 和内置 `pnpm@11.21.0`。
 
 - **托盘驻留**：关闭窗口只隐藏窗口，Host 与会话继续运行；托盘菜单提供“打开”和明确的“退出”，退出仍须等待 Host 完整终止。
 - **Dock 菜单**：仅在 macOS 提供“打开”和“退出”，保持单实例、单窗口模型，不引入第二套 UI。
@@ -78,6 +80,13 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - **平台边界**：将运行时启动器、Host 终止、托盘/Dock、产物定位和 packaged acceptance 分成平台无关核心与平台适配层；现有 macOS 行为和验收不得回退。
 
 验收：`npm test`、`npm run smoke`、macOS packaged acceptance 全部通过；关闭窗口后可由托盘恢复，选择退出后端口释放且无残留 Host；连续崩溃进入可手动恢复的停止态；fixture 两入口回放结果一致。
+
+#### 2026-08-15 实测结果
+
+- 完整源码测试全部通过；覆盖托盘/Dock 菜单、窗口驻留、单窗口恢复、三次/一分钟崩溃断路器、脱敏恢复页、手动重试和原有宿主生命周期/安全/发布不变量。
+- `npm run test:fixture-parity` 通过：两个隔离 `$DSH_HOME` 分别经官方直连浏览器入口和桌面监督入口加载真实 Host；外部 fixture 插件依次执行成功读取、真实审批、批准后的命令、确定性缺失文件错误和最终回复，归一化轨迹逐项相等。
+- `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `5/5` 通过，包含图标、完整 production tree、干净数据 smoke、pnpm、ripgrep、Sharp、Koffi、`node-pty` 和真实 PTY；退出后无残留 Host。
+- Linux CI 已加入独立 fixture parity 步骤，使用同一固定插件与工作区，不需要模型凭据，也不修改官方载荷。
 
 ### v0.4 — Windows x64
 
