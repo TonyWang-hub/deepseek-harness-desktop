@@ -51,7 +51,7 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 ### 2026-08-15 实测结果
 
-- 源码测试 `37/37` 通过，npm audit `0` 漏洞。
+- GitHub Linux CI 在串行准备 Electron runtime、保留 Chromium sandbox 并通过 Xvfb 运行真实 Electron 后，源码测试 `38/38` 通过；官方 npm registry audit 为 `0` 漏洞。
 - 当前 arm64 产物 packaged acceptance `4/4` 通过（含 App/DMG 图标）；x64 隔离干净安装的 production runtime acceptance `3/3` 通过。两架构 DMG/ZIP 完整性、Mach-O 架构、挂载 DMG 后冷启动 smoke、端口释放与无残留进程均通过。正式 Release 仍会从同一 tag 对两架构重新执行完整验收。
 - `dist/latest-mac.yml` 已合并两架构 ZIP/DMG，并逐件校验文件大小与 SHA-512。
 
