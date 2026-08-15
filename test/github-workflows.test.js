@@ -44,6 +44,15 @@ test('CI runs the source suite without release credentials', async () => {
       'xvfb-run --auto-servernum npm run test:fixture-parity',
     ],
   )
+  const windows = workflow.jobs['windows-foundation']
+  assert.equal(windows['runs-on'], 'windows-2025')
+  assert.deepEqual(
+    windows.steps.filter(step => step.run).map(step => step.run),
+    [
+      'npm ci --no-audit --fund=false',
+      'node --test test/host-lifecycle.test.js test/windows-process-tree.test.js',
+    ],
+  )
   assert.doesNotMatch(JSON.stringify(workflow), /secrets\.|CSC_|APPLE_|GH_TOKEN/)
 })
 

@@ -36,3 +36,22 @@ jobs:
         run: xvfb-run --auto-servernum npm test
       - name: Run browser-to-desktop fixture parity
         run: xvfb-run --auto-servernum npm run test:fixture-parity
+
+  windows-foundation:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.17.0'
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - name: Install exact dependencies
+        run: npm ci --no-audit --fund=false
+      - name: Verify Windows Host process-tree shutdown
+        run: node --test test/host-lifecycle.test.js test/windows-process-tree.test.js
