@@ -57,8 +57,8 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 ### 正式发布前置
 
-- 需要 Developer ID Application 证书和 Apple notarization 凭据；当前候选包是功能验收用 unsigned 产物，不冒充正式签名包。
-- `TonyWang-hub/deepseek-harness-desktop` 已是公开仓库，CI 与双架构 Release workflow 已就绪；尚需将 Developer ID Application 与 App Store Connect API 凭据存入受保护的 `release` Environment，然后才能创建正式 tag。
+- Developer ID Application 证书已安装并在本机验证可用；尚需安全导出并将其与 App Store Connect notarization API 凭据存入受保护的 `release` Environment。当前候选包仍是功能验收用 unsigned 产物，不冒充正式签名包。
+- `TonyWang-hub/deepseek-harness-desktop` 已完成公开仓库的中英文社区文件、Issue/PR 模板、Discussions、Dependabot、CodeQL、私密漏洞报告、Actions 权限收紧、CI 与双架构 Release workflow。`v0.2.0` 草稿 Release 已预建，正式 tag 刻意保持不存在，直到签名与公证凭据齐备。
 - 首个正式 Release 会同时上传两架构 DMG/ZIP 及各自 blockmap、唯一 `latest-mac.yml` 和 `SHA256SUMS.txt`；此前不上传 unsigned 候选包。第二个稳定版发布前再完成一次旧版→新版真实自动更新验收。
 
 ## 路线图
