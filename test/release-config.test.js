@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import test from 'node:test'
 import { inflateSync } from 'node:zlib'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const execFileAsync = promisify(execFile)
 const readJson = async relativePath => JSON.parse(await readFile(path.join(appRoot, relativePath), 'utf8'))
 
 function paeth(left, up, upperLeft) {
@@ -110,6 +113,13 @@ test('release dependencies and macOS packaging stay exact and self-contained', a
     repo: 'deepseek-harness-desktop',
     releaseType: 'draft',
   }])
+})
+
+test('source tests prepare one Electron runtime before concurrent test workers', async () => {
+  const pkg = await readJson('package.json')
+
+  assert.equal(pkg.scripts.pretest, 'node build/prepare-electron.js')
+  await execFileAsync(process.execPath, [path.join(appRoot, 'build/prepare-electron.js')])
 })
 
 test('the app icon is a deterministic monochrome macOS asset', async () => {

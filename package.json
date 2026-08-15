@@ -14,6 +14,7 @@
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
+    "pretest": "node build/prepare-electron.js",
     "test": "node --test test/*.test.js",
     "test:packaged": "node --test acceptance/packaged.test.js",
     "dist:mac:arm64": "node build/build-mac.js arm64",
