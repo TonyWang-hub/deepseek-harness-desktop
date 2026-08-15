@@ -36,7 +36,7 @@ test('CI runs the source suite without release credentials', async () => {
   })
   assert.deepEqual(
     job.steps.filter(step => step.run).map(step => step.run),
-    ['npm ci --no-audit --fund=false', 'npm test'],
+    ['npm ci --no-audit --fund=false', 'xvfb-run --auto-servernum npm test'],
   )
   assert.doesNotMatch(JSON.stringify(workflow), /secrets\.|CSC_|APPLE_|GH_TOKEN/)
 })

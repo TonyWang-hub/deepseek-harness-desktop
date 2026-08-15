@@ -27,4 +27,4 @@ jobs:
       - name: Install exact dependencies
         run: npm ci --no-audit --fund=false
       - name: Run source tests
-        run: npm test
+        run: xvfb-run --auto-servernum npm test
