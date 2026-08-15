@@ -8,7 +8,8 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "smoke": "electron . --smoke"
+    "smoke": "electron . --smoke",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.1.0-rc.6"

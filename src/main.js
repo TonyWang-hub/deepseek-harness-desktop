@@ -125,7 +125,8 @@ function createWindow() {
 
 const lock = app.requestSingleInstanceLock()
 if (!lock) {
-  app.exit(0)
+  if (SMOKE) console.error('SMOKE FAIL: another instance is already running')
+  process.exit(SMOKE ? 1 : 0)
 } else {
   app.on('second-instance', () => {
     if (win) { win.restore(); win.focus() }
