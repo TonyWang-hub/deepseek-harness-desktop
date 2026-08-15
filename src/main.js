@@ -30,6 +30,7 @@ import {
   showDesktopWindow,
 } from './desktop-shell.js'
 import { hostArguments } from './host-command.js'
+import { observeHostFailure } from './host-failure.js'
 import { createHostEnvironment } from './host-environment.js'
 import { terminateChild } from './host-lifecycle.js'
 import { runAutoUpdateCheck } from './updater.js'
@@ -82,7 +83,7 @@ const SPLASH = 'data:text/html,' + encodeURIComponent(
 
 /**
  * Spawn the pinned host and resolve its serving URL from the readiness line.
- * Crash-restarts with capped exponential backoff until the app quits.
+ * Crash-restarts with capped exponential backoff until the recovery circuit opens.
  */
 function startHost() {
   const nodeOverride = process.env.DSH_DESKTOP_NODE
@@ -119,17 +120,28 @@ function startHost() {
   host.stdout?.on('data', onLine)
   host.stderr?.on('data', onLine)
 
-  host.on('exit', (code, signal) => {
+  const startedHost = host
+  observeHostFailure(startedHost, failure => {
+    if (host !== startedHost) return
     host = undefined
     if (quitting) return
+    if (failure.kind === 'error') {
+      console.error(`Host launch failed: ${failure.code ?? 'unknown'}`)
+    }
     if (SMOKE) {
-      console.error(`SMOKE FAIL: host exited early (code ${code}, signal ${signal})`)
+      const reason = failure.kind === 'error'
+        ? `spawn error ${failure.code ?? 'unknown'}`
+        : `code ${failure.code}, signal ${failure.signal}`
+      console.error(`SMOKE FAIL: host exited early (${reason})`)
       app.exit(1)
       return
     }
     const decision = crashRecovery.recordExit()
-    const detail = `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}).`
+    const detail = failure.kind === 'error'
+      ? 'The host process could not start.'
+      : `The host stopped unexpectedly (code ${failure.code ?? 'null'}, signal ${failure.signal ?? 'null'}).`
     if (decision.action === 'stop') {
+      console.error(`Host recovery circuit opened after ${decision.crashCount} failures`)
       const pageUrl = createCrashPage({ detail })
       recoveryPageUrl = pageUrl
       win?.loadURL(pageUrl).catch(() => {

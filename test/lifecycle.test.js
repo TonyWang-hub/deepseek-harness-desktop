@@ -14,10 +14,10 @@ const electron = require('electron')
 const execFileAsync = promisify(execFile)
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-function launch(args, testRoot) {
+function launch(args, testRoot, envOverrides = {}) {
   const child = spawn(electron, [appRoot, `--user-data-dir=${path.join(testRoot, 'electron')}`, ...args], {
     cwd: appRoot,
-    env: { ...process.env, DSH_HOME: path.join(testRoot, 'dsh') },
+    env: { ...process.env, DSH_HOME: path.join(testRoot, 'dsh'), ...envOverrides },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
@@ -153,6 +153,25 @@ test('an unexpectedly killed host restarts without waiting for user input', { ti
       throw error
     }
     assert.equal(httpReady, true)
+  } finally {
+    await stopProcessTree(desktop.child)
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('repeated Host spawn errors open the recovery circuit without crashing Electron', { timeout: 60_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-spawn-error-'))
+  const desktop = launch([], testRoot, {
+    DSH_DESKTOP_NODE: path.join(testRoot, 'missing-node'),
+  })
+  try {
+    await waitUntil(
+      () => /Host recovery circuit opened after 3 failures/.test(desktop.output()),
+      'spawn failure recovery circuit',
+      15_000,
+    )
+    assert.equal(desktop.child.exitCode, null, desktop.output())
+    assert.equal((desktop.output().match(/Host launch failed: ENOENT/g) ?? []).length, 3)
   } finally {
     await stopProcessTree(desktop.child)
     await rm(testRoot, { recursive: true, force: true })
