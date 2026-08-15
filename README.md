@@ -12,13 +12,14 @@ An unofficial macOS desktop shell for [DeepSeek Harness](https://github.com/deep
 
 ## Why this build
 
-Community desktop clients already cover broader platforms, custom onboarding, tray workflows, and smaller Tauri or WebView shells. This project deliberately optimizes for a narrower set of properties:
+Community desktop clients already cover broader platforms, custom onboarding, and smaller Tauri or WebView shells. This project deliberately optimizes for a narrower set of properties:
 
 - **No upstream fork or patch layer.** The payload is the exact pinned npm release, currently `@deepseek-ai/dsh@0.1.0-rc.6`. Updating it changes the package version and lockfile instead of rebasing desktop changes onto upstream UI code.
 - **One data home.** The shell does not replace `$DSH_HOME`; the CLI and desktop app see the same Harness state without import or migration.
 - **No first-run runtime download.** Node.js, `pnpm@11.21.0`, the official production dependency tree, ripgrep, and architecture-specific native modules are inside the application. Model and web-provider calls can still require network access; "offline payload" does not mean offline model inference.
-- **Owned process lifetime.** The app waits for Host readiness, restarts an unexpected exit with bounded backoff, uses TERM→KILL on normal shutdown, and gives the Host a parent-lifetime pipe so a crashed desktop process does not leave it running.
-- **Artifact-level evidence.** arm64 and x64 builds execute the packaged Host, official plugin command, bundled Node and pnpm launchers, ripgrep, Sharp, Koffi, `node-pty`, and a real PTY before a build is accepted.
+- **Resident desktop workflow.** Closing the window keeps the single Host and its sessions alive; the tray and macOS Dock menu reopen the same window or explicitly quit.
+- **Owned process lifetime.** The app waits for Host readiness, stops rapid crash loops after finite bounded retries with a manual recovery page, uses TERM→KILL on normal shutdown, and gives the Host a parent-lifetime pipe so a crashed desktop process does not leave it running.
+- **Behavior and artifact evidence.** CI replays a deterministic external-plugin session through direct-browser and desktop entries, including tools, approval, and an error. arm64 and x64 builds also execute the packaged Host, official plugin command, bundled Node and pnpm launchers, ripgrep, Sharp, Koffi, `node-pty`, and a real PTY before acceptance.
 
 This reduces upstream adaptation work; it does not make the shell official or guarantee that every future Harness release will package without changes.
 
@@ -153,7 +154,7 @@ Snapshot: 2026-08-15. This is a scope comparison, not a ranking; verify the link
 | [hairyf/deepseek-harness-desktop](https://github.com/hairyf/deepseek-harness-desktop) | [v0.1.9](https://github.com/hairyf/deepseek-harness-desktop/releases/tag/v0.1.9): macOS arm64/x64, Windows x64, and Linux x64 | Tauri control shell; downloads a prebuilt Harness bundle on first launch; app-specific `$DSH_HOME` | Checks and replaces its Harness bundle independently of the desktop app | Its [release workflow](https://github.com/hairyf/deepseek-harness-desktop/blob/main/.github/workflows/release.yml) configures Tauri updater keys but no Apple Developer signing or notarization credentials |
 | [xiincs/deepseek-harness-desktop](https://github.com/xiincs/deepseek-harness-desktop) | [v1.0.0](https://github.com/xiincs/deepseek-harness-desktop/releases/tag/v1.0.0): macOS arm64, Windows x64, and Linux x64 | Tauri shell with bundled Node/DSH and standard `~/.dsh` | Signed Tauri updater artifacts are configured for Windows; macOS/Linux are download-only | Its [README](https://github.com/xiincs/deepseek-harness-desktop#deepseek-harness-desktop-tauri) explicitly labels macOS/Linux builds unsigned and unnotarized |
 
-Choose another community client if Windows/Linux support, a tray, customized provider onboarding, preset transfer, or the smallest shell is the priority. Choose this project when exact upstream behavior, shared CLI state, no first-run runtime download, deep packaged-runtime checks, and a fail-closed macOS release policy matter more than those additions.
+Choose another community client if Windows/Linux support, customized provider onboarding, preset transfer, or the smallest shell is the priority. Choose this project when exact upstream behavior, a resident tray workflow, shared CLI state, no first-run runtime download, deep packaged-runtime checks, and a fail-closed macOS release policy matter more than those additions.
 
 ## Upstream relationship, license, and trademarks
 

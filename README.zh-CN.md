@@ -12,13 +12,14 @@
 
 ## 为什么选择这套实现
 
-社区桌面客户端已经支持更多平台、定制化初始配置、托盘工作流程，以及更小的 Tauri 或 WebView 外壳。本项目有意将范围收窄到以下特性：
+社区桌面客户端已经支持更多平台、定制化初始配置，以及更小的 Tauri 或 WebView 外壳。本项目有意将范围收窄到以下特性：
 
 - **无上游 fork 或补丁层。** 载荷是锁定版本的原始 npm 发布包，当前为 `@deepseek-ai/dsh@0.1.0-rc.6`。升级时修改依赖版本和 lockfile，而不是将桌面改动重新合并到上游 UI 代码。
 - **共用一个数据主目录。** 外壳不替换 `$DSH_HOME`；CLI 和桌面应用无需导入或迁移即可看到同一份 Harness 状态。
 - **首次启动不下载运行时。** Node.js、`pnpm@11.21.0`、官方 production 依赖树、ripgrep 和分架构原生模块均内置于应用。模型和 Web provider 调用仍可能需要网络；“离线载荷”不等于离线模型推理。
-- **完整管理进程生命周期。** 应用等待 Host 就绪，对意外退出进行有上限的退避重启，正常退出时执行 TERM→KILL，并为 Host 提供父进程生存期管道，避免桌面主进程崩溃后留下孤儿进程。
-- **在真实产物层验收。** arm64 和 x64 构建均会在通过前执行已打包的 Host、官方插件命令、内置 Node 和 pnpm launcher、ripgrep、Sharp、Koffi、`node-pty` 以及真实 PTY。
+- **常驻桌面工作流。** 关闭窗口后，单一 Host 与会话保持运行；可通过托盘和 macOS Dock 菜单恢复同一窗口或明确退出。
+- **完整管理进程生命周期。** 应用等待 Host 就绪；短时间连续崩溃达到有限重试阈值后停止循环并提供手动恢复页；正常退出时执行 TERM→KILL，并为 Host 提供父进程生存期管道，避免桌面主进程崩溃后留下孤儿进程。
+- **行为与真实产物验收。** CI 通过直接浏览器入口与桌面入口回放包含工具、审批和错误的确定性外部插件会话。arm64 和 x64 构建还会在通过前执行已打包的 Host、官方插件命令、内置 Node 和 pnpm launcher、ripgrep、Sharp、Koffi、`node-pty` 以及真实 PTY。
 
 这会减少上游适配工作，但不会让本外壳变成官方产品，也不保证未来的每个 Harness 版本都无需调整打包代码。
 
@@ -153,7 +154,7 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 | [hairyf/deepseek-harness-desktop](https://github.com/hairyf/deepseek-harness-desktop) | [v0.1.9](https://github.com/hairyf/deepseek-harness-desktop/releases/tag/v0.1.9)：macOS arm64/x64、Windows x64 和 Linux x64 | Tauri 控制外壳；首次启动下载预构建 Harness bundle；应用专用 `$DSH_HOME` | 独立于桌面应用检查和替换 Harness bundle | 其[发布工作流](https://github.com/hairyf/deepseek-harness-desktop/blob/main/.github/workflows/release.yml) 配置 Tauri updater 密钥，但未配置 Apple Developer 签名或公证凭据 |
 | [xiincs/deepseek-harness-desktop](https://github.com/xiincs/deepseek-harness-desktop) | [v1.0.0](https://github.com/xiincs/deepseek-harness-desktop/releases/tag/v1.0.0)：macOS arm64、Windows x64 和 Linux x64 | 内置 Node/DSH 且使用标准 `~/.dsh` 的 Tauri 外壳 | Windows 配置了签名的 Tauri updater 产物；macOS/Linux 仅下载 | 其 [README](https://github.com/xiincs/deepseek-harness-desktop#deepseek-harness-desktop-tauri) 明确标注 macOS/Linux 构建未签名、未公证 |
 
-如果优先需要 Windows/Linux 支持、托盘、定制 provider 初始配置、preset 迁移或最小外壳，可选择其他社区客户端。如果相比这些附加功能，更看重与上游精确一致的行为、共享 CLI 状态、首启不下载运行时、深入的打包运行时验收和失败封闭的 macOS 发布策略，则本项目更合适。
+如果优先需要 Windows/Linux 支持、定制 provider 初始配置、preset 迁移或最小外壳，可选择其他社区客户端。如果相比这些附加功能，更看重与上游精确一致的行为、常驻托盘工作流、共享 CLI 状态、首启不下载运行时、深入的打包运行时验收和失败封闭的 macOS 发布策略，则本项目更合适。
 
 ## 上游关系、许可证与商标
 
