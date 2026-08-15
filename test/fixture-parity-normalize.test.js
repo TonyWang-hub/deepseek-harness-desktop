@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { normalizeParityHistory } from '../acceptance/helpers/normalize-session.js'
+import {
+  normalizeParityHistory,
+  requiredParityTrace,
+} from '../acceptance/helpers/normalize-session.js'
 
 test('parity normalization keeps semantic tools, approvals, errors, and completion', () => {
   const history = [
@@ -48,6 +51,21 @@ test('parity normalization canonicalizes JSON-escaped Windows workspace paths', 
       arguments: '{"file_path":"<WORKSPACE>/probe.txt"}',
     }],
   )
+})
+
+test('portable parity signature excludes environment-derived context without dropping it from the full trace', () => {
+  const complete = [
+    { type: 'user/message', source: 'user', text: 'fixture prompt' },
+    { type: 'user/message', source: 'skill-catalog', form: 'catalog' },
+    { type: 'compaction/start', compactionId: '<COMPACTION_1>', turn: 1 },
+    { type: 'assistant/message', text: 'PARITY_COMPLETE' },
+  ]
+
+  assert.deepEqual(requiredParityTrace(complete), [
+    { type: 'user/message', source: 'user', text: 'fixture prompt' },
+    { type: 'assistant/message', text: 'PARITY_COMPLETE' },
+  ])
+  assert.equal(complete.length, 4)
 })
 
 test('parity normalization preserves every assistant message and rejects unknown events', () => {

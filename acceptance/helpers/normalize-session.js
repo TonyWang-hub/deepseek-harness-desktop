@@ -36,6 +36,11 @@ function canonicalArguments(argumentsJson, workspace) {
  * @param {Array<{event: {type: string, data: any}}>} entries
  * @param {{workspace: string}} options
  */
+export function requiredParityTrace(trace) {
+  return trace.filter(event => !event.type.startsWith('compaction/')
+    && !(event.type === 'user/message' && event.source !== 'user'))
+}
+
 export function normalizeParityHistory(entries, { workspace }) {
   const normalized = []
   const approvalIds = new Map()

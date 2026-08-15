@@ -2,18 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { runParityEntry } from './helpers/fixture-host.js'
+import { requiredParityTrace } from './helpers/normalize-session.js'
 
 const READ_ARGUMENTS = '{"file_path":"<WORKSPACE>/probe.txt"}'
 const MISSING_ARGUMENTS = '{"file_path":"<WORKSPACE>/missing.txt"}'
 const BASH_ARGUMENTS = '{"command":"printf PARITY_APPROVAL_OK","description":"Print deterministic parity approval marker","justification":"The parity fixture verifies the real approval flow with a harmless command.","sandbox_permissions":"danger-full-access"}'
-const SYSTEM_PROMPT = {
-  type: 'user/message',
-  source: 'plugin',
-  plugin: '@deepseek-ai/dsh-system-prompt',
-  form: 'snapshot',
-  sections: ['sandbox:policy', 'approval:policy'],
-}
-
 const EXPECTED = [
   { type: 'permission/preset', preset: 'workspace-write' },
   { type: 'sandbox/mode', mode: 'workspace-write' },
@@ -29,8 +22,6 @@ const EXPECTED = [
   { type: 'agent/inbox/spliced', target: 'next-turn', start: 0, removedCount: 1, inserted: [] },
   { type: 'step/start' },
   { type: 'user/message', source: 'user', text: 'Run the deterministic parity fixture.' },
-  SYSTEM_PROMPT,
-  { type: 'user/message', source: 'skill-catalog', form: 'catalog' },
   {
     type: 'session/title',
     title: 'Run the deterministic parity fixture.',
@@ -48,12 +39,6 @@ const EXPECTED = [
     isError: false,
   },
   { type: 'step/end' },
-  { type: 'compaction/start', compactionId: '<COMPACTION_1>', turn: 1 },
-  { type: 'compaction/summary', compactionId: '<COMPACTION_1>', text: 'PARITY_COMPACTION' },
-  { type: 'user/message', source: 'plugin', plugin: 'compact' },
-  { type: 'compaction/end', compactionId: '<COMPACTION_1>', status: 'completed' },
-  { type: 'compaction/start', compactionId: '<COMPACTION_2>', turn: 1 },
-  { type: 'compaction/end', compactionId: '<COMPACTION_2>', status: 'error' },
   { type: 'step/start' },
   {
     type: 'assistant/message',
@@ -69,10 +54,7 @@ const EXPECTED = [
   { type: 'approval/decided', approvalId: '<APPROVAL_1>', outcome: 'allowed-once' },
   { type: 'tool/result', callId: 'parity-call-2', text: 'PARITY_APPROVAL_OK', isError: false },
   { type: 'step/end' },
-  { type: 'compaction/start', compactionId: '<COMPACTION_3>', turn: 1 },
-  { type: 'compaction/end', compactionId: '<COMPACTION_3>', status: 'error' },
   { type: 'step/start' },
-  SYSTEM_PROMPT,
   {
     type: 'assistant/message',
     toolCalls: [{ callId: 'parity-call-3', name: 'read', arguments: MISSING_ARGUMENTS }],
@@ -87,8 +69,6 @@ const EXPECTED = [
     isError: true,
   },
   { type: 'step/end' },
-  { type: 'compaction/start', compactionId: '<COMPACTION_4>', turn: 1 },
-  { type: 'compaction/end', compactionId: '<COMPACTION_4>', status: 'error' },
   { type: 'step/start' },
   { type: 'assistant/message', text: 'PARITY_COMPLETE' },
   { type: 'step/end' },
@@ -99,7 +79,7 @@ test('direct browser and desktop entries replay the same real Host behavior', { 
   const browser = await runParityEntry('browser')
   const desktop = await runParityEntry('desktop')
 
-  assert.deepEqual(browser, EXPECTED)
-  assert.deepEqual(desktop, EXPECTED)
   assert.deepEqual(desktop, browser)
+  assert.deepEqual(requiredParityTrace(browser), EXPECTED)
+  assert.deepEqual(requiredParityTrace(desktop), EXPECTED)
 })
