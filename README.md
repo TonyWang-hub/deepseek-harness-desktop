@@ -131,6 +131,13 @@ Each architecture build verifies:
 
 See [PLAN.md](PLAN.md) for the current release-candidate evidence and remaining publication prerequisites.
 
+## Community
+
+- Read [Contributing](CONTRIBUTING.md) before opening a pull request.
+- Use [Discussions](https://github.com/TonyWang-hub/deepseek-harness-desktop/discussions) for questions and setup help.
+- Use the structured issue forms for reproducible bugs and desktop feature requests.
+- Follow the [Security](SECURITY.md), [Support](SUPPORT.md), and [Code of Conduct](CODE_OF_CONDUCT.md) policies.
+
 ## Community comparison
 
 Snapshot: 2026-08-15. This is a scope comparison, not a ranking; verify the linked repositories because these early projects change quickly.

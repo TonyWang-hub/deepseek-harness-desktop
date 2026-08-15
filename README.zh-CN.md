@@ -131,6 +131,13 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 
 当前发布候选证据和剩余发布前置条件见 [PLAN.md](PLAN.md)。
 
+## 社区参与
+
+- 提交 PR 前请阅读 [Contributing](CONTRIBUTING.md)。
+- 使用 [Discussions](https://github.com/TonyWang-hub/deepseek-harness-desktop/discussions) 提问或寻求安装帮助。
+- 可复现缺陷和桌面端功能建议请使用结构化 Issue 表单。
+- 请遵守 [Security](SECURITY.md)、[Support](SUPPORT.md) 和 [Code of Conduct](CODE_OF_CONDUCT.md) 政策。
+
 ## 社区项目对比
 
 快照日期：2026-08-15。下表比较的是范围，不是排名；这些早期项目变化很快，请以链接仓库为准。

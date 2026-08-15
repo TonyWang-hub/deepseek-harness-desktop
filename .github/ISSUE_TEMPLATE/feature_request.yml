@@ -1,0 +1,42 @@
+name: Feature request / 功能建议
+description: Propose a desktop-specific improvement / 建议桌面端特有改进
+title: "[Feature]: "
+labels:
+  - enhancement
+  - status/needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository keeps the official DSH payload unmodified. Requests should describe a desktop-shell need rather than an upstream Web feature.
+        本仓库保持官方 DSH 载荷不变。请描述桌面壳需求，而不是上游 Web 功能。
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 问题
+      description: What desktop workflow is difficult today? / 当前哪个桌面工作流存在困难？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome / 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / 替代方案
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 领域
+      options:
+        - Window and macOS integration / 窗口与 macOS 集成
+        - Host lifecycle and recovery / Host 生命周期与恢复
+        - Packaging, installation, or updates / 打包、安装或更新
+        - Performance or resource use / 性能或资源占用
+        - Accessibility / 无障碍
+        - Other desktop behavior / 其他桌面行为
+    validations:
+      required: true

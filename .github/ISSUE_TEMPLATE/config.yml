@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and setup help / 问题与安装帮助
+    url: https://github.com/TonyWang-hub/deepseek-harness-desktop/discussions
+    about: Ask and answer usage questions in Discussions. / 请在 Discussions 中提问和交流。
+  - name: Private security report / 私密安全报告
+    url: https://github.com/TonyWang-hub/deepseek-harness-desktop/security/advisories/new
+    about: Never disclose a vulnerability in a public issue. / 请勿在公开 Issue 中披露漏洞。

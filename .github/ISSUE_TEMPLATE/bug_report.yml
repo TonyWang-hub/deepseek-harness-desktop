@@ -1,0 +1,80 @@
+name: Bug report / 缺陷报告
+description: Report a reproducible desktop-shell problem / 报告可复现的桌面端问题
+title: "[Bug]: "
+labels:
+  - bug
+  - status/needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the desktop app. Please remove credentials and private workspace content from logs.
+        感谢帮助改进桌面端。请先从日志中删除凭据和私有工作区内容。
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Checks / 提交前检查
+      options:
+        - label: I searched existing issues and discussions. / 我已搜索现有 Issue 和 Discussion。
+          required: true
+        - label: This report contains no API keys, credentials, or private data. / 本报告不包含 API Key、凭据或私有数据。
+          required: true
+  - type: input
+    id: desktop-version
+    attributes:
+      label: Desktop version / 桌面端版本
+      placeholder: 0.2.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version / macOS 版本
+      placeholder: macOS 15.6
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture / 架构
+      options:
+        - Apple Silicon (arm64)
+        - Intel (x64)
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction / 复现步骤
+      description: Provide the smallest repeatable sequence. / 提供最小可重复的操作步骤。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / 实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs / 脱敏日志
+      description: Attach only the relevant excerpt after removing secrets and personal paths. / 仅附上已移除密钥和个人路径的相关片段。
+      render: shell
+  - type: dropdown
+    id: upstream
+    attributes:
+      label: Official Web comparison / 官方 Web 对比
+      description: Does the problem also occur with the same profile in official dsh web? / 相同 profile 在官方 dsh web 中是否也会出现？
+      options:
+        - Not tested / 未测试
+        - Desktop only / 仅桌面端
+        - Also occurs upstream / 上游也会出现
+    validations:
+      required: true
