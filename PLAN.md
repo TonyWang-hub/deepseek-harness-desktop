@@ -63,6 +63,36 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 ## 路线图
 
-- **v0.2 打包**：代码、原创图标、双架构 unsigned 候选、GitHub CI/Release 自动化与中英文发布说明已完成；签名/公证与首个 GitHub Release 等待上述 Apple 凭据
-- **v0.3 体验**：托盘、Dock 菜单、崩溃恢复打磨、fixture 对等回放进 CI（回收资产③）
-- **v0.4 评估**：仅当内存数据构成用户问题时，启动 Tauri challenger 对比（回收旧规划的评测框架思路）
+采用“先稳定跨平台体验核心，再逐个平台发布”的顺序；非 macOS 平台不得削弱 D2（官方载荷不可修改）、标准 `$DSH_HOME`、宿主无孤儿进程和正式产物 fail-closed 验收。
+
+### v0.2 — macOS 正式发布
+
+代码、原创图标、双架构 unsigned 候选、GitHub CI/Release 自动化与中英文发布说明已完成；签名、公证与首个 GitHub Release 由独立发布任务等待上述 Apple 凭据，不阻塞后续版本开发。
+
+### v0.3 — 桌面体验与跨平台基础
+
+- **托盘驻留**：关闭窗口只隐藏窗口，Host 与会话继续运行；托盘菜单提供“打开”和明确的“退出”，退出仍须等待 Host 完整终止。
+- **Dock 菜单**：仅在 macOS 提供“打开”和“退出”，保持单实例、单窗口模型，不引入第二套 UI。
+- **崩溃恢复**：Host 偶发退出继续自动恢复；短时间连续失败达到阈值后停止重启循环，页面只显示脱敏故障信息，并提供手动重试与退出。
+- **fixture 行为对等 CI 门**：固定工作区与外部插件 fixture，分别经官方浏览器入口和桌面入口回放会话流、工具调用、审批与错误事件；归一化非确定字段后事件结果必须一致，不做易受上游 UI 变化影响的逐像素截图。
+- **平台边界**：将运行时启动器、Host 终止、托盘/Dock、产物定位和 packaged acceptance 分成平台无关核心与平台适配层；现有 macOS 行为和验收不得回退。
+
+验收：`npm test`、`npm run smoke`、macOS packaged acceptance 全部通过；关闭窗口后可由托盘恢复，选择退出后端口释放且无残留 Host；连续崩溃进入可手动恢复的停止态；fixture 两入口回放结果一致。
+
+### v0.4 — Windows x64
+
+- 在原生 Windows x64 runner 上执行独立干净安装，提供 Windows runtime/pnpm 启动器和可靠的 Host 进程树终止。
+- 使用 electron-builder 生成 x64 NSIS 安装包及自动更新所需产物；加入 Windows 图标、`latest.yml`、校验清单和独立 Release 构建任务。
+- Windows 正式产物必须代码签名并通过安装、卸载、冷启动、单实例、托盘、崩溃恢复、旧版→新版自动更新验收；无签名凭据时仅允许通过显式开关生成本地测试包，不得发布为正式版本。
+- packaged acceptance 必须执行官方 Host、pnpm、ripgrep、Sharp、Koffi、`node-pty` 和真实 Windows PTY，并证明应用退出或桌面主进程崩溃后端口释放且无残留进程。
+
+验收：Windows x64 源码测试、fixture 对等回放、安装包完整性、签名检查、安装后 smoke、production runtime acceptance、进程清理和真实自动更新全部通过，Release 才可公开。
+
+### v0.5 — Linux x64
+
+在 Windows 路线稳定后增加 Linux x64 原生构建，优先 AppImage；复用 v0.3 平台边界和 fixture CI 门，并补齐桌面文件、图标、托盘兼容、沙箱、进程树清理、打包 smoke、更新元数据与校验清单。是否同时提供 deb 由真实分发需求决定。
+
+### 后置评估
+
+- **Windows arm64**：仅在用户需求明确且官方载荷的完整原生依赖可在 Windows arm64 验收通过后加入。
+- **Tauri challenger（v0.6+）**：仅当实测内存数据构成用户问题时启动对比（回收旧规划的评测框架思路），不因跨平台目标提前 fork 官方载荷或更换已验证的 Electron 主路线。
