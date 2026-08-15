@@ -68,6 +68,7 @@ let win
 /** @type {Tray | undefined} */
 let tray
 let hostUrl = ''
+let recoveryPageActive = false
 let restartTimer
 let quitting = false
 let quitReady = false
@@ -111,6 +112,7 @@ function startHost() {
     if (m && !sawReady) {
       sawReady = true
       hostUrl = m[1]
+      recoveryPageActive = false
       void win?.loadURL(hostUrl)
     }
   }
@@ -128,6 +130,7 @@ function startHost() {
     const decision = crashRecovery.recordExit()
     const detail = `The host stopped unexpectedly (code ${code ?? 'null'}, signal ${signal ?? 'null'}).`
     if (decision.action === 'stop') {
+      recoveryPageActive = true
       win?.loadURL(createCrashPage({ detail })).catch(() => {})
       return
     }
@@ -143,6 +146,7 @@ function retryHost() {
   if (quitting || host) return
   if (restartTimer) clearTimeout(restartTimer)
   restartTimer = undefined
+  recoveryPageActive = false
   crashRecovery.reset()
   startHost()
 }
@@ -179,6 +183,7 @@ function createWindow() {
   })
   installCrashActions({
     webContents: win.webContents,
+    isEnabled: () => recoveryPageActive,
     retry: retryHost,
     quit: () => app.quit(),
   })
