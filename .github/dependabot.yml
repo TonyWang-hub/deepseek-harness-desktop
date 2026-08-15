@@ -19,6 +19,9 @@ updates:
         dependency-type: production
     ignore:
       - dependency-name: "@deepseek-ai/dsh"
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
   - package-ecosystem: github-actions
     directory: /
     schedule:

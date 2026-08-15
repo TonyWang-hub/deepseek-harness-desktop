@@ -28,6 +28,9 @@ test('Dependabot maintains npm and GitHub Actions without moving the pinned DSH 
   }
   const npm = config.updates.find(update => update['package-ecosystem'] === 'npm')
   assert.ok(npm.ignore.some(rule => rule['dependency-name'] === '@deepseek-ai/dsh'))
+  assert.ok(npm.ignore.some(rule =>
+    rule['dependency-name'] === '*' &&
+    rule['update-types']?.includes('version-update:semver-major')))
   assert.ok(npm.groups['development-dependencies'])
   assert.ok(npm.groups['production-dependencies'])
 })
