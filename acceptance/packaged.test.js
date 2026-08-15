@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { access, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,6 +53,53 @@ async function exists(filename) {
   }
 }
 
+async function waitUntil(check, description, timeoutMs = 90_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const value = await check()
+    if (value) return value
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error(`Timed out waiting for ${description}`)
+}
+
+async function control(socketPath, command) {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection(socketPath)
+    let response = ''
+    socket.setEncoding('utf8')
+    socket.once('error', reject)
+    socket.on('data', chunk => {
+      response += chunk
+      const newline = response.indexOf('\n')
+      if (newline === -1) return
+      socket.end()
+      const parsed = JSON.parse(response.slice(0, newline))
+      if (!parsed.ok) reject(new Error(parsed.error))
+      else resolve(parsed.value)
+    })
+    socket.once('connect', () => socket.write(`${JSON.stringify({ command })}\n`))
+  })
+}
+
+function processExists(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    if (error.code === 'ESRCH') return false
+    throw error
+  }
+}
+
+async function waitForExit(child, timeoutMs = 15_000) {
+  if (child.exitCode !== null || child.signalCode !== null) return child.exitCode
+  return Promise.race([
+    new Promise(resolve => child.once('exit', code => resolve(code))),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for packaged app exit')), timeoutMs)),
+  ])
+}
+
 test('the packaged app contains the complete installed production tree as physical files', async () => {
   const lock = JSON.parse(await readFile(path.join(projectDir, 'package-lock.json'), 'utf8'))
   const missing = []
@@ -92,6 +140,56 @@ test('the packaged app completes smoke with clean data and releases its port', {
     assert.ok(url)
     await assert.rejects(fetch(url))
   } finally {
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('the packaged tray keeps the Host resident, restores one window, and quits cleanly', { timeout: 120_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-packaged-resident-'))
+  const socketPath = path.join(testRoot, 'control.sock')
+  const child = spawn(appExecutable, [`--user-data-dir=${path.join(testRoot, 'electron')}`], {
+    env: {
+      ...process.env,
+      DSH_HOME: path.join(testRoot, 'dsh'),
+      DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let output = ''
+  child.stdout.on('data', chunk => { output += chunk.toString() })
+  child.stderr.on('data', chunk => { output += chunk.toString() })
+  let hostUrl
+  try {
+    const initial = await waitUntil(async () => {
+      try {
+        const snapshot = await control(socketPath, 'snapshot')
+        return snapshot.hostUrl ? snapshot : undefined
+      } catch {
+        return undefined
+      }
+    }, 'packaged resident Host readiness', 30_000)
+    hostUrl = initial.hostUrl
+    assert.equal(Number.isInteger(initial.windowId), true)
+
+    await control(socketPath, 'close-window')
+    const hidden = await control(socketPath, 'snapshot')
+    assert.equal(hidden.windowVisible, false)
+    assert.equal(hidden.hostPid, initial.hostPid)
+    assert.equal((await fetch(hostUrl)).ok, true)
+
+    await control(socketPath, 'tray-open')
+    const restored = await control(socketPath, 'snapshot')
+    assert.equal(restored.windowVisible, true)
+    assert.equal(restored.windowId, initial.windowId)
+    assert.equal(restored.hostPid, initial.hostPid)
+
+    await control(socketPath, 'quit')
+    assert.equal(await waitForExit(child), 0, output)
+    await assert.rejects(fetch(hostUrl))
+    await waitUntil(() => !processExists(initial.hostPid), 'packaged Host exit after explicit quit', 10_000)
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    await rm(socketPath, { force: true })
     await rm(testRoot, { recursive: true, force: true })
   }
 })

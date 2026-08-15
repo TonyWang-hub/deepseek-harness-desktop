@@ -12,6 +12,7 @@ export function createHostEnvironment({ appPath, electronPath, baseEnv, nodeOver
     PATH: [path.join(appPath, 'bin'), baseEnv.PATH].filter(Boolean).join(path.delimiter),
     HARNESS_DESKTOP_ELECTRON: electronPath,
   }
+  delete env.DSH_DESKTOP_ACCEPTANCE_SOCKET
   if (nodeOverride) delete env.ELECTRON_RUN_AS_NODE
   else env.ELECTRON_RUN_AS_NODE = '1'
   return env

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
+import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,6 +45,25 @@ async function waitForExit(child, timeoutMs = 10_000) {
     new Promise(resolve => child.once('exit', (code, signal) => resolve({ code, signal }))),
     new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for process exit')), timeoutMs)),
   ])
+}
+
+async function control(socketPath, command) {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection(socketPath)
+    let response = ''
+    socket.setEncoding('utf8')
+    socket.once('error', reject)
+    socket.on('data', chunk => {
+      response += chunk
+      const newline = response.indexOf('\n')
+      if (newline === -1) return
+      socket.end()
+      const parsed = JSON.parse(response.slice(0, newline))
+      if (!parsed.ok) reject(new Error(parsed.error))
+      else resolve(parsed.value)
+    })
+    socket.once('connect', () => socket.write(`${JSON.stringify({ command })}\n`))
+  })
 }
 
 async function childPids(parentPid) {
@@ -174,6 +194,79 @@ test('repeated Host spawn errors open the recovery circuit without crashing Elec
     assert.equal((desktop.output().match(/Host launch failed: ENOENT/g) ?? []).length, 3)
   } finally {
     await stopProcessTree(desktop.child)
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
+test('real window residency, tray restore, crash circuit, retry, and quit share one Host lifecycle', { timeout: 120_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-resident-'))
+  const socketPath = path.join(testRoot, 'control.sock')
+  const desktop = launch([], testRoot, { DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath })
+  let lastUrl
+  try {
+    const initial = await waitUntil(async () => {
+      try {
+        const snapshot = await control(socketPath, 'snapshot')
+        return snapshot.hostUrl ? snapshot : undefined
+      } catch {
+        return undefined
+      }
+    }, 'acceptance control and Host readiness', 10_000)
+    lastUrl = initial.hostUrl
+    assert.equal(initial.windowVisible, true)
+    assert.equal(Number.isInteger(initial.windowId), true)
+    assert.equal((await fetch(lastUrl)).ok, true)
+
+    await control(socketPath, 'close-window')
+    const hidden = await control(socketPath, 'snapshot')
+    assert.equal(hidden.windowVisible, false)
+    assert.equal(hidden.hostPid, initial.hostPid)
+    assert.equal((await fetch(lastUrl)).ok, true)
+
+    await control(socketPath, 'tray-open')
+    const restored = await control(socketPath, 'snapshot')
+    assert.equal(restored.windowVisible, true)
+    assert.equal(restored.windowId, initial.windowId)
+    assert.equal(restored.hostPid, initial.hostPid)
+
+    let previousPid = initial.hostPid
+    for (let crash = 1; crash <= 2; crash += 1) {
+      await control(socketPath, 'crash-host')
+      const restarted = await waitUntil(async () => {
+        const snapshot = await control(socketPath, 'snapshot')
+        return snapshot.hostPid && snapshot.hostPid !== previousPid && snapshot.hostUrl !== lastUrl
+          ? snapshot
+          : undefined
+      }, `Host restart ${crash}`, 15_000)
+      previousPid = restarted.hostPid
+      lastUrl = restarted.hostUrl
+    }
+
+    await control(socketPath, 'crash-host')
+    const stopped = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.recoveryOpen && !snapshot.hostPid ? snapshot : undefined
+    }, 'open crash circuit', 15_000)
+    assert.equal(stopped.windowVisible, true)
+
+    await control(socketPath, 'retry')
+    const recovered = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.hostPid && snapshot.hostUrl !== lastUrl && !snapshot.recoveryOpen
+        ? snapshot
+        : undefined
+    }, 'manual Host recovery', 15_000)
+    lastUrl = recovered.hostUrl
+    assert.equal((await fetch(lastUrl)).ok, true)
+
+    await control(socketPath, 'quit')
+    const result = await waitForExit(desktop.child)
+    assert.equal(result.code, 0, desktop.output())
+    await assert.rejects(fetch(lastUrl))
+    await waitUntil(() => !processExists(recovered.hostPid), 'Host exit after explicit quit', 10_000)
+  } finally {
+    await stopProcessTree(desktop.child)
+    await rm(socketPath, { force: true })
     await rm(testRoot, { recursive: true, force: true })
   }
 })

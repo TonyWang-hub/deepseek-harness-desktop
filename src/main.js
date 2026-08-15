@@ -18,6 +18,7 @@ import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
+import { installAcceptanceControl } from './acceptance-control.js'
 import {
   createCrashPage,
   createCrashRecovery,
@@ -68,6 +69,7 @@ let host
 let win
 /** @type {Tray | undefined} */
 let tray
+let acceptanceControl
 let hostUrl = ''
 let recoveryPageUrl = ''
 let restartTimer
@@ -255,6 +257,37 @@ if (!lock) {
         quit: () => app.quit(),
       })
     }
+    acceptanceControl = installAcceptanceControl({
+      socketPath: process.env.DSH_DESKTOP_ACCEPTANCE_SOCKET,
+      handlers: {
+        snapshot: () => ({
+          windowVisible: win?.isVisible() ?? false,
+          windowId: win?.id,
+          hostPid: host?.pid,
+          hostUrl,
+          recoveryOpen: Boolean(
+            recoveryPageUrl && win?.webContents.getURL() === recoveryPageUrl,
+          ),
+        }),
+        'close-window': () => win?.close(),
+        'tray-open': () => {
+          if (!tray) throw new Error('Tray is not installed')
+          tray.emit('click')
+        },
+        'crash-host': () => {
+          if (!host?.pid) throw new Error('Host is not running')
+          host.kill('SIGKILL')
+        },
+        retry: async () => {
+          if (!win) throw new Error('Window is not available')
+          await win.webContents.executeJavaScript(
+            "window.location.href = 'dsh-desktop://retry'",
+          )
+        },
+        quit: () => setImmediate(() => app.quit()),
+      },
+    })
+    acceptanceControl?.ready.catch(error => console.error('Acceptance control failed:', error))
     void runAutoUpdateCheck({
       isPackaged: app.isPackaged,
       isSmoke: SMOKE,
@@ -277,6 +310,8 @@ if (!lock) {
     if (quitReady) return
     event.preventDefault()
     quitting = true
+    acceptanceControl?.close()
+    acceptanceControl = undefined
     if (quitPromise) return
     quitPromise = stopHost()
       .catch(error => console.error('Host shutdown failed:', error))

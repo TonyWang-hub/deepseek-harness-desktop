@@ -23,7 +23,11 @@ test('the host environment uses payload-local tools before ambient PATH', () => 
   const env = createHostEnvironment({
     appPath: '/Applications/DeepSeek Harness Desktop.app/Contents/Resources/app',
     electronPath: '/Applications/DeepSeek Harness Desktop.app/Contents/MacOS/DeepSeek Harness Desktop',
-    baseEnv: { PATH: '/usr/bin:/bin', SAFE_VALUE: 'kept' },
+    baseEnv: {
+      PATH: '/usr/bin:/bin',
+      SAFE_VALUE: 'kept',
+      DSH_DESKTOP_ACCEPTANCE_SOCKET: '/tmp/private-control.sock',
+    },
     nodeOverride: undefined,
   })
 
@@ -32,6 +36,7 @@ test('the host environment uses payload-local tools before ambient PATH', () => 
     '/Applications/DeepSeek Harness Desktop.app/Contents/MacOS/DeepSeek Harness Desktop')
   assert.equal(env.ELECTRON_RUN_AS_NODE, '1')
   assert.equal(env.SAFE_VALUE, 'kept')
+  assert.equal(env.DSH_DESKTOP_ACCEPTANCE_SOCKET, undefined)
 })
 
 test('the bundled node and pnpm launchers use Electron without a global Node install', async () => {
