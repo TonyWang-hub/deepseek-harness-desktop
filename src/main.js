@@ -131,7 +131,11 @@ if (!lock) {
   process.exit(SMOKE ? 1 : 0)
 } else {
   app.on('second-instance', () => {
-    if (win) { win.restore(); win.focus() }
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    if (process.platform === 'darwin') app.focus({ steal: true })
+    win.focus()
   })
   app.whenReady().then(() => {
     startHost()
