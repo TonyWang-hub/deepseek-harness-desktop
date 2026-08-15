@@ -130,7 +130,7 @@ Each architecture build verifies:
 - ripgrep, Sharp, Koffi, `node-pty`, and a real shell PTY execute from the packaged application; and
 - the application has the requested Mach-O architecture and leaves no Host process after normal exit or parent death.
 
-See [PLAN.md](PLAN.md) for the current release-candidate evidence and remaining publication prerequisites.
+See [PLAN.md](PLAN.md) for release acceptance evidence and the cross-platform roadmap.
 
 ## Community
 
@@ -145,7 +145,7 @@ Snapshot: 2026-08-15. This is a scope comparison, not a ranking; verify the link
 
 | Project | Published desktop assets | Payload and data | Updates | Signing and notarization evidence |
 | --- | --- | --- | --- | --- |
-| This project | None; source and locally validated macOS arm64/x64 candidates only | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime and production tree | Client and dual-architecture metadata implemented; feed pending | No public binary. Formal builds require `codesign`, Gatekeeper, and a stapled ticket |
+| This project | [v0.2.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.2.0): macOS arm64/x64 DMG and ZIP, update metadata, and checksums | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime and production tree | Public dual-architecture release feed and Electron updater | Release workflow and downloaded DMG verified with `codesign`, Gatekeeper, and a stapled notarization ticket |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0): macOS arm64 and Windows x64 | Electron desktop app inside a full Harness source tree; stages workspace packages; tray integration | No updater is declared in the current [desktop manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) | v0.1.0 does not document artifact trust; current source includes a separate [macOS release preflight](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7): macOS arm64/x64 and Windows x64, with update metadata | Pinned rc.6 packages plus documented [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) for desktop features; app-specific Harness data directory | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) checks installed macOS and Windows builds | The [release workflow](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) verifies macOS with `codesign`, Gatekeeper, and `stapler`; its [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) disables Windows update code-signature verification |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4): macOS arm64/x64, Windows x64, and Linux x64 | Electron, pinned official rc.6 UI, standard Harness data, tray integration | Its [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) says automatic updates are not integrated | The same README says macOS is not Apple-notarized and Windows is not commercially code-signed |

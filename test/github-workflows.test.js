@@ -72,6 +72,7 @@ test('release builds each architecture natively with signing and notarization cr
   const setup = build.steps.find(step => step.uses?.startsWith('actions/setup-node@'))
   assert.equal(setup?.with?.['node-version'], '24.17.0')
   assert.match(source, /test "\$\(node -p 'process\.arch'\)" = "\$\{\{ matrix\.arch \}\}"/)
+  assert.ok(build.steps.some(step => step.run === 'npm run test:fixture-parity'))
   assert.match(source, /npm run "dist:mac:\$\{\{ matrix\.arch \}\}"/)
   assert.match(source, /hdiutil verify/)
   assert.match(source, /unzip -tq/)

@@ -17,7 +17,7 @@ async function readRequired(relativePath) {
 }
 
 test('community guidance is bilingual and routes security reports privately', async () => {
-  const [contributing, conduct, security, support, owners, readme, readmeChinese] = await Promise.all([
+  const [contributing, conduct, security, support, owners, readme, readmeChinese, plan] = await Promise.all([
     readRequired('CONTRIBUTING.md'),
     readRequired('CODE_OF_CONDUCT.md'),
     readRequired('SECURITY.md'),
@@ -25,6 +25,7 @@ test('community guidance is bilingual and routes security reports privately', as
     readRequired('.github/CODEOWNERS'),
     readRequired('README.md'),
     readRequired('README.zh-CN.md'),
+    readRequired('PLAN.md'),
   ])
 
   for (const document of [contributing, conduct, security, support]) {
@@ -41,8 +42,10 @@ test('community guidance is bilingual and routes security reports privately', as
     assert.match(document, /\[Security\]\(SECURITY\.md\)/)
     assert.match(document, /\/discussions/)
     assert.match(document, /releases\/latest/)
-    assert.doesNotMatch(document, /nothing to download|没有.*下载|尚未发布.*二进制/i)
+    assert.doesNotMatch(document, /nothing to download|没有.*下载|尚未发布.*二进制|no public binary|无公开二进制|feed pending|feed 待提供/i)
   }
+  assert.match(plan, /releases\/tag\/v0\.2\.0/)
+  assert.doesNotMatch(plan, /尚需安全导出|签名、公证与首个 GitHub Release.*等待/)
 })
 
 test('issue forms and the pull request template collect actionable evidence', async () => {

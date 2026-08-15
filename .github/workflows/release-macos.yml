@@ -48,6 +48,8 @@ jobs:
         run: npm ci --no-audit --fund=false
       - name: Run source tests
         run: npm test
+      - name: Run fixture parity gate
+        run: npm run test:fixture-parity
       - name: Stage App Store Connect API key
         env:
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}

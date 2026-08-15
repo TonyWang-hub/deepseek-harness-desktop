@@ -130,7 +130,7 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 - ripgrep、Sharp、Koffi、`node-pty` 和真实 shell PTY 可以从打包应用中执行；以及
 - 应用具有所需 Mach-O 架构，正常退出或父进程死亡后不会留下 Host 进程。
 
-当前发布候选证据和剩余发布前置条件见 [PLAN.md](PLAN.md)。
+发布验收证据和跨平台路线图见 [PLAN.md](PLAN.md)。
 
 ## 社区参与
 
@@ -145,7 +145,7 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 
 | 项目 | 已发布桌面产物 | 载荷与数据 | 更新 | 签名与公证证据 |
 | --- | --- | --- | --- | --- |
-| 本项目 | 无；仅提供源码和已本地验证的 macOS arm64/x64 候选包 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时和 production 依赖树 | 客户端和双架构元数据已实现；feed 待提供 | 无公开二进制包。正式构建强制 `codesign`、Gatekeeper 和 stapled ticket |
+| 本项目 | [v0.2.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.2.0)：macOS arm64/x64 DMG 与 ZIP、更新元数据和校验和 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时和 production 依赖树 | 公开双架构 Release feed 与 Electron updater | Release workflow 和下载后的 DMG 均已通过 `codesign`、Gatekeeper 与 stapled 公证 ticket 验证 |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0)：macOS arm64 和 Windows x64 | 完整 Harness 源码树内的 Electron 桌面应用；打包 workspace 依赖；托盘集成 | 当前[桌面 manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) 未声明 updater | v0.1.0 未记录产物信任状态；当前源码包含独立的 [macOS 发布预检](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7)：macOS arm64/x64 和 Windows x64，含更新元数据 | 锁定 rc.6 包，并使用有文档记录的 [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) 增加桌面功能；应用专用 Harness 数据目录 | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) 检查已安装的 macOS 和 Windows 构建 | [发布工作流](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) 在 macOS 上验证 `codesign`、Gatekeeper 和 `stapler`；其 [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) 关闭了 Windows 更新代码签名验证 |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4)：macOS arm64/x64、Windows x64 和 Linux x64 | Electron、锁定的官方 rc.6 UI、标准 Harness 数据和托盘集成 | 其 [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) 说明尚未集成自动更新 | 同一 README 说明 macOS 未通过 Apple 公证，Windows 未进行商业代码签名 |

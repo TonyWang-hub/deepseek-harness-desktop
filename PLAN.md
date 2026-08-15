@@ -55,11 +55,11 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - 当前 arm64 产物 packaged acceptance `4/4` 通过（含 App/DMG 图标）；x64 隔离干净安装的 production runtime acceptance `3/3` 通过。两架构 DMG/ZIP 完整性、Mach-O 架构、挂载 DMG 后冷启动 smoke、端口释放与无残留进程均通过。正式 Release 仍会从同一 tag 对两架构重新执行完整验收。
 - `dist/latest-mac.yml` 已合并两架构 ZIP/DMG，并逐件校验文件大小与 SHA-512。
 
-### 正式发布前置
+### 正式发布基础（已完成）
 
-- Developer ID Application 证书已安装并在本机验证可用；尚需安全导出并将其与 App Store Connect notarization API 凭据存入受保护的 `release` Environment。当前候选包仍是功能验收用 unsigned 产物，不冒充正式签名包。
-- `TonyWang-hub/deepseek-harness-desktop` 已完成公开仓库的中英文社区文件、Issue/PR 模板、Discussions、Dependabot、CodeQL、私密漏洞报告、Actions 权限收紧、CI 与双架构 Release workflow。`v0.2.0` 草稿 Release 已预建，正式 tag 刻意保持不存在，直到签名与公证凭据齐备。
-- 首个正式 Release 会同时上传两架构 DMG/ZIP 及各自 blockmap、唯一 `latest-mac.yml` 和 `SHA256SUMS.txt`；此前不上传 unsigned 候选包。第二个稳定版发布前再完成一次旧版→新版真实自动更新验收。
+- Developer ID Application 证书和 App Store Connect notarization API 凭据已存入受保护的 `release` Environment；Release workflow 对未签名、未通过 Gatekeeper 或缺少 stapled ticket 的产物 fail closed。
+- [`v0.2.0`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.2.0) 已正式发布：arm64/x64 DMG/ZIP、各自 blockmap、唯一 `latest-mac.yml` 和 `SHA256SUMS.txt` 共十项产物均公开；下载后的 arm64 DMG 已再次验证为 `Notarized Developer ID` 且 ticket 有效。
+- `TonyWang-hub/deepseek-harness-desktop` 已完成中英文社区文件、Issue/PR 模板、Discussions、Dependabot、CodeQL、私密漏洞报告、Actions 权限收紧、CI 与双架构 Release workflow。后续稳定版继续从同一 tag 原生构建、签名、公证并验证全部产物。
 
 ## 路线图
 
@@ -67,7 +67,7 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 ### v0.2 — macOS 正式发布
 
-代码、原创图标、双架构 unsigned 候选、GitHub CI/Release 自动化与中英文发布说明已完成；签名、公证与首个 GitHub Release 由独立发布任务等待上述 Apple 凭据，不阻塞后续版本开发。
+代码、原创图标、双架构候选、GitHub CI/Release 自动化与中英文发布说明已完成；`v0.2.0` 已由受保护 Release workflow 原生构建 arm64/x64，完成 Developer ID 签名、Apple 公证、staple、产物校验并正式发布。
 
 ### v0.3 — 桌面体验与跨平台基础（已完成）
 
