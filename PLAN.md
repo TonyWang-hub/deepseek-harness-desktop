@@ -83,9 +83,9 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 #### 2026-08-15 实测结果
 
-- 完整源码测试全部通过；覆盖托盘/Dock 菜单、窗口驻留、单窗口恢复、三次/一分钟崩溃断路器、脱敏恢复页、手动重试和原有宿主生命周期/安全/发布不变量。
-- `npm run test:fixture-parity` 通过：两个隔离 `$DSH_HOME` 分别经官方直连浏览器入口和桌面监督入口加载真实 Host；外部 fixture 插件依次执行成功读取、真实审批、批准后的命令、确定性缺失文件错误和最终回复，归一化轨迹逐项相等。
-- `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `5/5` 通过，包含图标、完整 production tree、干净数据 smoke、pnpm、ripgrep、Sharp、Koffi、`node-pty` 和真实 PTY；退出后无残留 Host。
+- 完整源码测试 `66/66` 通过；真实 Electron 验收关闭窗口后确认同一 Host/端口继续可用、由实际 Tray click listener 恢复同一 `BrowserWindow`，三次真实 Host 崩溃进入停止态，手动 Retry 恢复，明确 Quit 后精确 Host PID 与端口均消失。spawn `error`/`exit` 只计一次失败。
+- `npm run test:fixture-parity` `1/1` 通过：两个隔离 `$DSH_HOME` 分别经官方直连浏览器入口和桌面监督入口加载真实 Host；严格轨迹保留完整工具参数/结果/错误、call ID、审批、step、compaction、用户/助手消息和最终回复，对未知事件 fail closed，并结构化归一化 Windows JSON 路径。
+- `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `6/6` 通过，新增非 smoke 托盘驻留、同一窗口恢复和精确 Host 清理验收；正式 Release workflow 会在原生 arm64/x64 runner 上从同一 tag 重新执行签名、公证、staple、产物与更新元数据验收。
 - Linux CI 已加入独立 fixture parity 步骤，使用同一固定插件与工作区，不需要模型凭据，也不修改官方载荷。
 
 ### v0.4 — Windows x64
