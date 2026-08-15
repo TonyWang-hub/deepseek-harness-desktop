@@ -24,11 +24,12 @@ export function createCrashPage({ detail, retryDelayMs }) {
 /**
  * Handle the two local actions exposed by the script-free crash page.
  *
- * @param {{webContents: Electron.WebContents, isEnabled: () => boolean, retry: () => void, quit: () => void}} options
+ * @param {{webContents: Electron.WebContents, getRecoveryUrl: () => string, retry: () => void, quit: () => void}} options
  */
-export function installCrashActions({ webContents, isEnabled, retry, quit }) {
+export function installCrashActions({ webContents, getRecoveryUrl, retry, quit }) {
   webContents.on('will-navigate', (event, url) => {
-    if (!isEnabled()) return
+    const recoveryUrl = getRecoveryUrl()
+    if (!recoveryUrl || webContents.getURL() !== recoveryUrl) return
     if (url === 'dsh-desktop://retry') {
       event.preventDefault()
       retry()

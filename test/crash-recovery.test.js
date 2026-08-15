@@ -50,13 +50,16 @@ test('an open crash circuit renders sanitized retry and quit actions', () => {
   assert.doesNotMatch(html, /<script>unsafe/)
 })
 
-test('local crash actions run only while the recovery page is active', () => {
+test('local crash actions require the committed recovery document', () => {
   const webContents = new EventEmitter()
   const calls = []
-  let enabled = false
+  const recoveryUrl = 'data:text/html,recovery'
+  let currentUrl = 'http://127.0.0.1:1234/'
+  let expectedRecoveryUrl = recoveryUrl
+  webContents.getURL = () => currentUrl
   installCrashActions({
     webContents,
-    isEnabled: () => enabled,
+    getRecoveryUrl: () => expectedRecoveryUrl,
     retry: () => calls.push('retry'),
     quit: () => calls.push('quit'),
   })
@@ -64,11 +67,11 @@ test('local crash actions run only while the recovery page is active', () => {
   const event = { preventDefault: () => { prevented += 1 } }
 
   webContents.emit('will-navigate', event, 'dsh-desktop://quit')
-  enabled = true
+  currentUrl = recoveryUrl
   webContents.emit('will-navigate', event, 'dsh-desktop://retry')
+  expectedRecoveryUrl = ''
   webContents.emit('will-navigate', event, 'dsh-desktop://quit')
-  webContents.emit('will-navigate', event, 'https://example.com')
 
-  assert.deepEqual(calls, ['retry', 'quit'])
-  assert.equal(prevented, 2)
+  assert.deepEqual(calls, ['retry'])
+  assert.equal(prevented, 1)
 })
