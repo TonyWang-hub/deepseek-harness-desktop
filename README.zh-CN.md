@@ -8,7 +8,7 @@
 
 这是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的非官方 macOS 桌面外壳。它在 Electron 中运行锁定版本且未修改的官方 `@deepseek-ai/dsh` Web 应用，并保留标准 `$DSH_HOME`，因此桌面应用与 `dsh` 共享 profile、凭据、会话、工具和插件。
 
-> **发布状态——源码可用，二进制包尚未发布。** 本项目目前没有官方 DMG、下载链接或发布校验和。在能使用 Developer ID Application 证书签名并通过 Apple 公证之前，不会公开发布二进制包。本地 unsigned 发布候选包仅用于测试；请勿将它们作为官方发布包转发。
+> **发布状态——已提供签名并通过公证的 macOS 版本。** 仅从本仓库的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载，选择原生架构，并验证发布校验和与 Apple 签名。本地生成的 unsigned 候选包仍仅用于测试，不得作为正式发布包转发。
 
 ## 为什么选择这套实现
 
@@ -44,7 +44,7 @@ Electron 只负责原生窗口、进程监督、打包和更新集成；Harness 
 
 ### 发布可用性
 
-本项目目前无可下载内容。只有在两种 macOS 架构均具备签名、公证且验证通过的产物及更新元数据后，才会在此添加发布页链接。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
+[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)提供已签名、公证并 stapled 的 macOS arm64/x64 产物、校验和与更新元数据。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
 
 ### 选择 Apple Silicon 或 Intel
 
@@ -57,10 +57,10 @@ Electron 只负责原生窗口、进程监督、打包和更新集成；Harness 
 
 DMG 与 Mac 架构匹配时无需 Rosetta。请勿在 Intel Mac 上安装 arm64 构建，也不要默认在 Apple Silicon 上使用 x64 构建。
 
-### 安装未来的已签名构建
+### 安装已签名构建
 
-1. 本项目宣布正式发布后，从本项目的发布页下载匹配的 DMG。
-2. 如果该发布提供 SHA-256，按下文说明进行比对；始终验证已安装应用的 Apple 签名。
+1. 从本项目的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载匹配的 DMG。
+2. 将其 SHA-256 与 `SHA256SUMS.txt` 比对；始终验证已安装应用的 Apple 签名。
 3. 打开 DMG，将 **DeepSeek Harness Desktop** 拖入 **Applications**。
 4. 从 Applications 启动应用。如果被标为官方发布的构建出现“无法验证开发者”警告，应停止安装并验证来源，而不是绕过 Gatekeeper。
 
@@ -68,9 +68,7 @@ DMG 与 Mac 架构匹配时无需 Rosetta。请勿在 Intel Mac 上安装 arm64 
 
 ### SHA-256
 
-本项目目前既不发布 DMG，也不发布权威 SHA-256 值。如果没有来自同一发布页的预期值，单独计算摘要只能识别文件，不能证明文件真实性。
-
-当发布页提供 SHA-256 值时，对已下载的匹配文件执行以下命令，并比对全部 64 个十六进制字符：
+每个发布都会在 `SHA256SUMS.txt` 中提供权威 SHA-256 值。对已下载的匹配文件执行以下命令，并比对全部 64 个十六进制字符：
 
 ```sh
 shasum -a 256 ~/Downloads/DeepSeek-Harness-Desktop-<version>-mac-arm64.dmg
@@ -93,7 +91,7 @@ xcrun stapler validate "/Applications/DeepSeek Harness Desktop.app"
 
 ## 自动更新
 
-更新客户端和双架构元数据生成已实现，但在本项目具备公开 GitHub Release feed 之前，更新尚不可用。已打包的 production 应用会在启动后执行一次非阻塞检查。如果存在更新，应用会等待下载完成，然后通知用户在应用退出时安装；网络或 feed 错误会被报告，但不会阻塞 Harness 启动。
+公开 GitHub Release feed 提供双架构更新元数据。已打包的 production 应用会在启动后执行一次非阻塞检查。如果存在更新，应用会等待下载完成，然后通知用户在应用退出时安装；网络或 feed 错误会被报告，但不会阻塞 Harness 启动。
 
 只有合并后的 `latest-mac.yml`、arm64 和 x64 ZIP/DMG 及 blockmap 一同发布，并且真实安装版本到新版本的升级验收通过后，该发布才具备更新条件。源码构建和 smoke 模式不检查更新。
 

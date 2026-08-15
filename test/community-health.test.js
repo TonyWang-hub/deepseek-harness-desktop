@@ -40,6 +40,8 @@ test('community guidance is bilingual and routes security reports privately', as
     assert.match(document, /\[Contributing\]\(CONTRIBUTING\.md\)/)
     assert.match(document, /\[Security\]\(SECURITY\.md\)/)
     assert.match(document, /\/discussions/)
+    assert.match(document, /releases\/latest/)
+    assert.doesNotMatch(document, /nothing to download|没有.*下载|尚未发布.*二进制/i)
   }
 })
 

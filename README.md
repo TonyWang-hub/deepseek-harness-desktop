@@ -8,7 +8,7 @@ English | [简体中文](README.zh-CN.md)
 
 An unofficial macOS desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It runs the pinned, unmodified official `@deepseek-ai/dsh` Web application inside Electron and keeps the standard `$DSH_HOME`, so the desktop app and `dsh` share profiles, credentials, sessions, tools, and plugins.
 
-> **Distribution status — source available, binaries not yet published.** There is no official DMG, download link, or release checksum for this project today. Public binaries are withheld until they can be signed with a Developer ID Application certificate and notarized by Apple. The local unsigned release candidates are test artifacts; do not redistribute them as official releases.
+> **Distribution status — signed and notarized macOS releases are available.** Download only from this repository's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest), choose the native architecture, and verify the published checksum and Apple signature. Locally generated unsigned candidates remain test artifacts and must not be redistributed as official releases.
 
 ## Why this build
 
@@ -44,7 +44,7 @@ The application uses Electron's bundled Node runtime for the Host and clears Ele
 
 ### Release availability
 
-There is nothing to download from this project yet. The release page will be linked here only after both macOS architectures have signed, notarized, and verified artifacts plus update metadata. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
+The [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest) provides signed, notarized, and stapled macOS arm64/x64 artifacts, checksums, and update metadata. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
 
 ### Choose Apple Silicon or Intel
 
@@ -57,10 +57,10 @@ Open **Apple menu → About This Mac** and check the processor or chip:
 
 Rosetta is not required when the DMG matches the Mac. Do not install the arm64 build on Intel or use the x64 build as the default on Apple Silicon.
 
-### Install a future signed build
+### Install a signed build
 
-1. Download the matching DMG from this project's release page after an official release is announced.
-2. If that release publishes a SHA-256, compare it as described below; always verify the installed application's Apple signature.
+1. Download the matching DMG from this project's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest).
+2. Compare its SHA-256 with `SHA256SUMS.txt`; always verify the installed application's Apple signature.
 3. Open the DMG and drag **DeepSeek Harness Desktop** to **Applications**.
 4. Launch it from Applications. A "developer cannot be verified" warning on an advertised official release is a reason to stop and verify the source, not a reason to bypass Gatekeeper.
 
@@ -68,9 +68,7 @@ Rosetta is not required when the DMG matches the Mac. Do not install the arm64 b
 
 ### SHA-256
 
-This project currently publishes neither DMGs nor authoritative SHA-256 values. Computing a digest without an expected value from the same release only identifies a file; it does not establish authenticity.
-
-When a release provides a SHA-256 value, calculate the matching download and compare all 64 hexadecimal characters:
+Every release publishes authoritative SHA-256 values in `SHA256SUMS.txt`. Calculate the matching download and compare all 64 hexadecimal characters:
 
 ```sh
 shasum -a 256 ~/Downloads/DeepSeek-Harness-Desktop-<version>-mac-arm64.dmg
@@ -93,7 +91,7 @@ All commands must exit successfully. Gatekeeper should report an accepted Develo
 
 ## Automatic updates
 
-The update client and dual-architecture metadata generation are implemented, but updates are not operational until this project has a public GitHub release feed. A packaged production app performs one non-blocking check after launch. If an update is available, it waits for the download and notifies the user that installation will occur when the app exits; network or feed errors are reported without blocking Harness startup.
+The public GitHub release feed provides dual-architecture update metadata. A packaged production app performs one non-blocking check after launch. If an update is available, it waits for the download and notifies the user that installation will occur when the app exits; network or feed errors are reported without blocking Harness startup.
 
 A release is not update-ready until its merged `latest-mac.yml`, arm64 and x64 ZIP/DMG files, and blockmaps are published together and a real installed-version-to-new-version upgrade has passed. Source builds and smoke mode do not check for updates.
 
