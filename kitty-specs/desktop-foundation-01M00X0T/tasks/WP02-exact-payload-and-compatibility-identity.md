@@ -23,7 +23,7 @@ subtasks:
 - T009
 - T010
 - T011
-agent: codex
+agent: "codex"
 history: []
 agent_profile: node-norris
 authoritative_surface: packages/payload/
@@ -47,6 +47,7 @@ owned_files:
 - docs/compatibility.md
 role: implementer
 tags: []
+shell_pid: "6716"
 ---
 
 # WP02: Exact Payload and Compatibility Identity
@@ -324,3 +325,7 @@ Review identity completeness before implementation elegance. Trace one staged by
 Audit every filesystem and process boundary. Staging and local-checkout probes must operate only in identity-fenced desktop-owned directories, cleanup must never use a broad unresolved target, and the sibling upstream status/content fingerprint must remain unchanged on success, failure, and cancellation.
 
 Finally, inspect the upgrade gate adversarially. A candidate that needs application or business-bridge changes must not pass merely because its version is newer, and a compatible candidate must not require edits outside the declared compatibility layer. Confirm error and evidence outputs are useful while containing no secret, user content, unrestricted environment value, or absolute checkout path.
+
+## Activity Log
+
+- 2026-08-14T23:47:24Z – codex – shell_pid=6716 – Assigned agent via action command
