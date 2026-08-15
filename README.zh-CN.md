@@ -2,6 +2,8 @@
 
 [English](README.md) | 简体中文
 
+[![CI](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
+
 <p align="center"><img src="build/icon-1024.png" width="128" alt="DeepSeek Harness Desktop 极简黑白终端环图标"></p>
 
 这是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的非官方 macOS 桌面外壳。它在 Electron 中运行锁定版本且未修改的官方 `@deepseek-ai/dsh` Web 应用，并保留标准 `$DSH_HOME`，因此桌面应用与 `dsh` 共享 profile、凭据、会话、工具和插件。

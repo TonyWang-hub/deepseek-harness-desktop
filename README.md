@@ -2,6 +2,8 @@
 
 English | [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
+
 <p align="center"><img src="build/icon-1024.png" width="128" alt="DeepSeek Harness Desktop monochrome terminal-loop icon"></p>
 
 An unofficial macOS desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It runs the pinned, unmodified official `@deepseek-ai/dsh` Web application inside Electron and keeps the standard `$DSH_HOME`, so the desktop app and `dsh` share profiles, credentials, sessions, tools, and plugins.
