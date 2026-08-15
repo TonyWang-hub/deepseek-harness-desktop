@@ -97,6 +97,12 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 验收：Windows x64 源码测试、fixture 对等回放、安装包完整性、签名检查、安装后 smoke、production runtime acceptance、进程清理和真实自动更新全部通过，Release 才可公开。
 
+#### 2026-08-15 首个验证切片
+
+- 显式退出路径已接入 Windows `taskkill /T` 进程树终止：先尝试非强制关闭，失败或超时后使用 `/F`，并等待根 Host 退出和 taskkill 命令完成后才报告清理完成。
+- 原生 `windows-2025` x64 CI 已执行真实根进程加后代进程验收并通过；同一提交的 Linux 完整源码与 fixture parity 门也通过（[run 31906814786](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31906814786)）。
+- 本切片不宣称 v0.4 完成；Windows runtime/pnpm 原生 launcher、桌面主进程崩溃后的整树清理、NSIS 打包、签名、packaged runtime 与更新验收仍按上述顺序继续。
+
 ### v0.5 — Linux x64
 
 在 Windows 路线稳定后增加 Linux x64 原生构建，优先 AppImage；复用 v0.3 平台边界和 fixture CI 门，并补齐桌面文件、图标、托盘兼容、沙箱、进程树清理、打包 smoke、更新元数据与校验清单。是否同时提供 deb 由真实分发需求决定。
