@@ -1,0 +1,153 @@
+# DeepSeek Harness Desktop
+
+[English](README.md) | 简体中文
+
+<p align="center"><img src="build/icon-1024.png" width="128" alt="DeepSeek Harness Desktop 极简黑白终端环图标"></p>
+
+这是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的非官方 macOS 桌面外壳。它在 Electron 中运行锁定版本且未修改的官方 `@deepseek-ai/dsh` Web 应用，并保留标准 `$DSH_HOME`，因此桌面应用与 `dsh` 共享 profile、凭据、会话、工具和插件。
+
+> **发布状态——源码可用，二进制包尚未发布。** 本项目目前没有官方 DMG、下载链接或发布校验和。在能使用 Developer ID Application 证书签名并通过 Apple 公证之前，不会公开发布二进制包。本地 unsigned 发布候选包仅用于测试；请勿将它们作为官方发布包转发。
+
+## 为什么选择这套实现
+
+社区桌面客户端已经支持更多平台、定制化初始配置、托盘工作流程，以及更小的 Tauri 或 WebView 外壳。本项目有意将范围收窄到以下特性：
+
+- **无上游 fork 或补丁层。** 载荷是锁定版本的原始 npm 发布包，当前为 `@deepseek-ai/dsh@0.1.0-rc.6`。升级时修改依赖版本和 lockfile，而不是将桌面改动重新合并到上游 UI 代码。
+- **共用一个数据主目录。** 外壳不替换 `$DSH_HOME`；CLI 和桌面应用无需导入或迁移即可看到同一份 Harness 状态。
+- **首次启动不下载运行时。** Node.js、`pnpm@11.21.0`、官方 production 依赖树、ripgrep 和分架构原生模块均内置于应用。模型和 Web provider 调用仍可能需要网络；“离线载荷”不等于离线模型推理。
+- **完整管理进程生命周期。** 应用等待 Host 就绪，对意外退出进行有上限的退避重启，正常退出时执行 TERM→KILL，并为 Host 提供父进程生存期管道，避免桌面主进程崩溃后留下孤儿进程。
+- **在真实产物层验收。** arm64 和 x64 构建均会在通过前执行已打包的 Host、官方插件命令、内置 Node 和 pnpm launcher、ripgrep、Sharp、Koffi、`node-pty` 以及真实 PTY。
+
+这会减少上游适配工作，但不会让本外壳变成官方产品，也不保证未来的每个 Harness 版本都无需调整打包代码。
+
+## 架构
+
+```text
+DeepSeek Harness Desktop (Electron main)
+├─ Host supervisor and parent-lifetime pipe
+│  └─ bundled Node → host bootstrap → @deepseek-ai/dsh web --port 0
+├─ app-local bin/node and bin/pnpm for Host tools and child processes
+└─ sandboxed BrowserWindow → http://127.0.0.1:<random-port>
+                               └─ official Harness Web UI
+
+standard $DSH_HOME ← shared by the desktop app and dsh CLI
+```
+
+Electron 只负责原生窗口、进程监督、打包和更新集成；Harness 负责界面和 Agent 行为。Host 监听操作系统分配的回环端口；窗口阻止其他 origin，拒绝新窗口，并且只向可信的本地 origin 授予经净化的剪贴板写入权限。
+
+应用使用 Electron 内置的 Node 运行 Host，并在 Harness 或其子命令运行前清除 Electron 专用的进程标记。`DSH_DESKTOP_NODE=/absolute/path/to/node` 保留为上游原生运行时不兼容时的高级备用方案。
+
+## 下载与安装
+
+### 发布可用性
+
+本项目目前无可下载内容。只有在两种 macOS 架构均具备签名、公证且验证通过的产物及更新元数据后，才会在此添加发布页链接。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
+
+### 选择 Apple Silicon 或 Intel
+
+打开 **Apple 菜单 → 关于本机**，检查处理器或芯片：
+
+| Mac | 架构 | 发布后的预期 DMG 名称 |
+| --- | --- | --- |
+| Apple M 系列芯片 | `arm64` | `DeepSeek-Harness-Desktop-<version>-mac-arm64.dmg` |
+| Intel 处理器 | `x64` | `DeepSeek-Harness-Desktop-<version>-mac-x64.dmg` |
+
+DMG 与 Mac 架构匹配时无需 Rosetta。请勿在 Intel Mac 上安装 arm64 构建，也不要默认在 Apple Silicon 上使用 x64 构建。
+
+### 安装未来的已签名构建
+
+1. 本项目宣布正式发布后，从本项目的发布页下载匹配的 DMG。
+2. 如果该发布提供 SHA-256，按下文说明进行比对；始终验证已安装应用的 Apple 签名。
+3. 打开 DMG，将 **DeepSeek Harness Desktop** 拖入 **Applications**。
+4. 从 Applications 启动应用。如果被标为官方发布的构建出现“无法验证开发者”警告，应停止安装并验证来源，而不是绕过 Gatekeeper。
+
+## 验证发布包
+
+### SHA-256
+
+本项目目前既不发布 DMG，也不发布权威 SHA-256 值。如果没有来自同一发布页的预期值，单独计算摘要只能识别文件，不能证明文件真实性。
+
+当发布页提供 SHA-256 值时，对已下载的匹配文件执行以下命令，并比对全部 64 个十六进制字符：
+
+```sh
+shasum -a 256 ~/Downloads/DeepSeek-Harness-Desktop-<version>-mac-arm64.dmg
+shasum -a 256 ~/Downloads/DeepSeek-Harness-Desktop-<version>-mac-x64.dmg
+```
+
+只需使用与已下载架构匹配的一行。自动更新器会另行使用 `latest-mac.yml` 中的 SHA-512 值；两个架构的 manifest 合并前，这些值会从每个更新产物生成并与产物重新校验。
+
+### Apple 签名与公证
+
+将应用复制到 `/Applications` 后，macOS 可以验证正式构建所强制的同样三项属性：
+
+```sh
+codesign --verify --deep --strict --verbose=2 "/Applications/DeepSeek Harness Desktop.app"
+spctl --assess --type execute --verbose=4 "/Applications/DeepSeek Harness Desktop.app"
+xcrun stapler validate "/Applications/DeepSeek Harness Desktop.app"
+```
+
+所有命令都必须成功退出。Gatekeeper 应报告已接受的 Developer ID 应用，`stapler` 应报告有效 ticket。任一检查失败或跳过公证都会使构建失败。只有 `HARNESS_DESKTOP_ALLOW_UNSIGNED=1` 会为本地测试构建关闭这些检查，该模式还会关闭签名身份自动发现，避免产生误导性的局部签名。
+
+## 自动更新
+
+更新客户端和双架构元数据生成已实现，但在本项目具备公开 GitHub Release feed 之前，更新尚不可用。已打包的 production 应用会在启动后执行一次非阻塞检查。如果存在更新，应用会等待下载完成，然后通知用户在应用退出时安装；网络或 feed 错误会被报告，但不会阻塞 Harness 启动。
+
+只有合并后的 `latest-mac.yml`、arm64 和 x64 ZIP/DMG 及 blockmap 一同发布，并且真实安装版本到新版本的升级验收通过后，该发布才具备更新条件。源码构建和 smoke 模式不检查更新。
+
+## 从源码构建与验证
+
+### 开发
+
+前置条件：macOS，以及当前架构的 Node.js `24.17.x`。
+
+```sh
+npm ci
+npm run smoke
+npm start
+```
+
+`npm run smoke` 会在随机回环端口上启动真实官方 Host，加载其 Web UI，并等待 Host 干净退出。
+
+### 本地 unsigned 包
+
+Unsigned 包仅用于本地验收：
+
+```sh
+HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:arm64
+HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
+```
+
+只运行与当前 Node 进程和干净依赖安装架构匹配的命令。如果架构不匹配或缺少目标架构原生包，构建会失败；然后它会自动运行打包产物验收。请勿发布、转发或将这些产物宣传为可信下载。
+
+### 打包产物验收
+
+每个架构构建都会验证：
+
+- 每个已安装的 production 包都作为物理文件存在于打包产物中；
+- 干净 `$DSH_HOME` 可以冷启动官方 Host 和 Web UI，并在退出时释放回环端口；
+- 官方插件命令可以找到内置 pnpm，而子进程看到的是内置 Node，而不是 Electron GUI 模式；
+- ripgrep、Sharp、Koffi、`node-pty` 和真实 shell PTY 可以从打包应用中执行；以及
+- 应用具有所需 Mach-O 架构，正常退出或父进程死亡后不会留下 Host 进程。
+
+当前发布候选证据和剩余发布前置条件见 [PLAN.md](PLAN.md)。
+
+## 社区项目对比
+
+快照日期：2026-08-15。下表比较的是范围，不是排名；这些早期项目变化很快，请以链接仓库为准。
+
+| 项目 | 已发布桌面产物 | 载荷与数据 | 更新 | 签名与公证证据 |
+| --- | --- | --- | --- | --- |
+| 本项目 | 无；仅提供源码和已本地验证的 macOS arm64/x64 候选包 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时和 production 依赖树 | 客户端和双架构元数据已实现；feed 待提供 | 无公开二进制包。正式构建强制 `codesign`、Gatekeeper 和 stapled ticket |
+| [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0)：macOS arm64 和 Windows x64 | 完整 Harness 源码树内的 Electron 桌面应用；打包 workspace 依赖；托盘集成 | 当前[桌面 manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) 未声明 updater | v0.1.0 未记录产物信任状态；当前源码包含独立的 [macOS 发布预检](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
+| [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7)：macOS arm64/x64 和 Windows x64，含更新元数据 | 锁定 rc.6 包，并使用有文档记录的 [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) 增加桌面功能；应用专用 Harness 数据目录 | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) 检查已安装的 macOS 和 Windows 构建 | [发布工作流](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) 在 macOS 上验证 `codesign`、Gatekeeper 和 `stapler`；其 [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) 关闭了 Windows 更新代码签名验证 |
+| [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4)：macOS arm64/x64、Windows x64 和 Linux x64 | Electron、锁定的官方 rc.6 UI、标准 Harness 数据和托盘集成 | 其 [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) 说明尚未集成自动更新 | 同一 README 说明 macOS 未通过 Apple 公证，Windows 未进行商业代码签名 |
+| [hairyf/deepseek-harness-desktop](https://github.com/hairyf/deepseek-harness-desktop) | [v0.1.9](https://github.com/hairyf/deepseek-harness-desktop/releases/tag/v0.1.9)：macOS arm64/x64、Windows x64 和 Linux x64 | Tauri 控制外壳；首次启动下载预构建 Harness bundle；应用专用 `$DSH_HOME` | 独立于桌面应用检查和替换 Harness bundle | 其[发布工作流](https://github.com/hairyf/deepseek-harness-desktop/blob/main/.github/workflows/release.yml) 配置 Tauri updater 密钥，但未配置 Apple Developer 签名或公证凭据 |
+| [xiincs/deepseek-harness-desktop](https://github.com/xiincs/deepseek-harness-desktop) | [v1.0.0](https://github.com/xiincs/deepseek-harness-desktop/releases/tag/v1.0.0)：macOS arm64、Windows x64 和 Linux x64 | 内置 Node/DSH 且使用标准 `~/.dsh` 的 Tauri 外壳 | Windows 配置了签名的 Tauri updater 产物；macOS/Linux 仅下载 | 其 [README](https://github.com/xiincs/deepseek-harness-desktop#deepseek-harness-desktop-tauri) 明确标注 macOS/Linux 构建未签名、未公证 |
+
+如果优先需要 Windows/Linux 支持、托盘、定制 provider 初始配置、preset 迁移或最小外壳，可选择其他社区客户端。如果相比这些附加功能，更看重与上游精确一致的行为、共享 CLI 状态、首启不下载运行时、深入的打包运行时验收和失败封闭的 macOS 发布策略，则本项目更合适。
+
+## 上游关系、许可证与商标
+
+本仓库是独立桌面外壳，不是 DeepSeek 产品。未修改的载荷文件来自 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)，并保留上游许可证和 notice。外壳源码按 [MIT License](LICENSE) 提供；内置第三方依赖仍适用各自许可证。
+
+“DeepSeek”、“DeepSeek Harness”、相关标识以及其他商标归各自权利人所有。本项目使用这些名称只为说明兼容性和上游来源，不表示关联、赞助、认证或背书。

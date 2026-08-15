@@ -45,21 +45,24 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - arm64/x64 按架构独立干净安装与打包；每次构建自动验收完整 production tree、干净 `$DSH_HOME` smoke、pnpm、ripgrep、Sharp、Koffi、node-pty 和真实 PTY。
 - Host 正常退出等待 SIGTERM→SIGKILL；桌面主进程崩溃时，fd3 生存期通道保证 Host 不变成孤儿进程。
 - 窗口禁止非本地导航、新窗口与非必要权限；自动更新不阻塞启动，下载失败可控。
+- 应用使用独立设计的极简黑白图标，不使用或改造 DeepSeek 官方鱼形标识；SVG、1024 px PNG、ICNS、App 和 DMG 图标均有可执行验收。
 - 正式构建强制校验签名、Gatekeeper 和 stapled notarization ticket；只有显式 `HARNESS_DESKTOP_ALLOW_UNSIGNED=1` 才能生成本地测试包。
+- GitHub Actions 已将 arm64/x64 分别放在原生 macOS runner 上构建，通过签名、公证、挂载 smoke 和产物摘要校验后，先生成 draft，再原子发布精确 10 个 Release 资产。
 
 ### 2026-08-15 实测结果
 
-- 源码测试 `28/28` 通过，npm audit `0` 漏洞。
-- arm64 与 x64 的 packaged acceptance 各 `3/3` 通过；两架构 DMG/ZIP 完整性、Mach-O 架构、挂载 DMG 后冷启动 smoke、端口释放与无残留进程均通过。
+- 源码测试 `37/37` 通过，npm audit `0` 漏洞。
+- 当前 arm64 产物 packaged acceptance `4/4` 通过（含 App/DMG 图标）；x64 隔离干净安装的 production runtime acceptance `3/3` 通过。两架构 DMG/ZIP 完整性、Mach-O 架构、挂载 DMG 后冷启动 smoke、端口释放与无残留进程均通过。正式 Release 仍会从同一 tag 对两架构重新执行完整验收。
 - `dist/latest-mac.yml` 已合并两架构 ZIP/DMG，并逐件校验文件大小与 SHA-512。
 
 ### 正式发布前置
 
 - 需要 Developer ID Application 证书和 Apple notarization 凭据；当前候选包是功能验收用 unsigned 产物，不冒充正式签名包。
-- 需要创建 `TonyWang-hub/deepseek-harness-desktop` 公开仓库和 GitHub Release，上传合并后的 `latest-mac.yml`、两架构 ZIP/DMG 及 blockmap，再做一次旧版→新版真实更新。完成前，自动更新客户端已实现，但 feed 尚不存在。
+- `TonyWang-hub/deepseek-harness-desktop` 已是公开仓库，CI 与双架构 Release workflow 已就绪；尚需将 Developer ID Application 与 App Store Connect API 凭据存入受保护的 `release` Environment，然后才能创建正式 tag。
+- 首个正式 Release 会同时上传两架构 DMG/ZIP 及各自 blockmap、唯一 `latest-mac.yml` 和 `SHA256SUMS.txt`；此前不上传 unsigned 候选包。第二个稳定版发布前再完成一次旧版→新版真实自动更新验收。
 
 ## 路线图
 
-- **v0.2 打包**：代码与双架构 unsigned 候选已完成；签名/公证和 GitHub Release 等待上述外部凭据与仓库
+- **v0.2 打包**：代码、原创图标、双架构 unsigned 候选、GitHub CI/Release 自动化与中英文发布说明已完成；签名/公证与首个 GitHub Release 等待上述 Apple 凭据
 - **v0.3 体验**：托盘、Dock 菜单、崩溃恢复打磨、fixture 对等回放进 CI（回收资产③）
 - **v0.4 评估**：仅当内存数据构成用户问题时，启动 Tauri challenger 对比（回收旧规划的评测框架思路）
