@@ -82,11 +82,14 @@ function icnsChunkTypes(icns) {
 test('release dependencies and macOS packaging stay exact and self-contained', async () => {
   const pkg = await readJson('package.json')
   const lock = await readJson('package-lock.json')
+  const license = await readFile(path.join(appRoot, 'LICENSE'), 'utf8')
 
   assert.equal(pkg.version, '0.2.0')
   assert.equal(lock.version, pkg.version)
   assert.equal(lock.packages[''].version, pkg.version)
-  assert.equal(pkg.author, 'TonyWang-hub')
+  assert.equal(pkg.author, 'WZ')
+  assert.equal(pkg.build.copyright, 'Copyright © 2026 WZ')
+  assert.match(license, /^Copyright \(c\) 2026 WZ$/m)
   assert.equal(pkg.engines.node, '>=24.17.0 <25')
   assert.deepEqual(Object.keys(pkg.scripts).filter(name => name.startsWith('release:mac')), [])
   assert.equal(pkg.scripts['dist:mac:arm64'], 'node build/build-mac.js arm64')
