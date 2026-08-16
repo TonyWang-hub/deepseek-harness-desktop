@@ -88,7 +88,17 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `6/6` 通过，新增非 smoke 托盘驻留、同一窗口恢复和精确 Host 清理验收；正式 Release workflow 会在原生 arm64/x64 runner 上从同一 tag 重新执行签名、公证、staple、产物与更新元数据验收。
 - Linux CI 已加入独立 fixture parity 步骤，使用同一固定插件与工作区，不需要模型凭据，也不修改官方载荷。
 
-### v0.4 — Windows x64
+### v0.4 — macOS Reliability
+
+用户选择先深化 macOS，再继续 Windows。该阶段保持单实例、单窗口、官方载荷零修改和标准 `$DSH_HOME`，只增强桌面壳拥有的可靠性边界。
+
+- **统一状态机**：以 `starting`、`ready`、`disconnected`、`recovering`、`circuit-open`、`updating`、`quitting` 表达唯一桌面状态；Host、窗口、Tray/Dock、恢复页和更新器不得各自维护冲突判断。
+- **睡眠/唤醒与网络恢复**：macOS resume/unlock 后先检查网络与 Host 健康。Host 可达时仅重新加载页面连接；离线时等待网络恢复且不计入崩溃断路器；在线但本地 Host 不可达时才受控重启 Host。
+- **自检与脱敏诊断包**：输出应用/系统/架构/官方载荷版本、Host 状态、更新状态和 bundled runtime 检查；绝不写入会话正文、Token/Cookie/Authorization、真实主目录或 `$DSH_HOME` 路径。Tray 提供显式导出动作。
+
+验收：纯状态转换与恢复决策单测通过；真实 Electron 验证 Host 健康时 resume 只重载同一窗口且 PID/端口不变、离线不重启、不增加 crash count、Host 不健康时只启动一个替代 Host；诊断包通过敏感值对抗测试；`npm test`、fixture parity、smoke 与 arm64 packaged acceptance 全部通过后才可进入发布准备。
+
+### v0.5 — Windows x64
 
 - 在原生 Windows x64 runner 上执行独立干净安装，提供 Windows runtime/pnpm 启动器和可靠的 Host 进程树终止。
 - 使用 electron-builder 生成 x64 NSIS 安装包及自动更新所需产物；加入 Windows 图标、`latest.yml`、校验清单和独立 Release 构建任务。
@@ -97,17 +107,17 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 验收：Windows x64 源码测试、fixture 对等回放、安装包完整性、签名检查、安装后 smoke、production runtime acceptance、进程清理和真实自动更新全部通过，Release 才可公开。
 
-#### 2026-08-15 首个验证切片
+#### 已完成的前置验证切片
 
 - 显式退出路径已接入 Windows `taskkill /T` 进程树终止：先尝试非强制关闭，失败或超时后使用 `/F`，并等待根 Host 退出和 taskkill 命令完成后才报告清理完成。
 - 原生 `windows-2025` x64 CI 已执行真实根进程加后代进程验收并通过；同一提交的 Linux 完整源码与 fixture parity 门也通过（[run 31906814786](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31906814786)）。
-- 本切片不宣称 v0.4 完成；Windows runtime/pnpm 原生 launcher、桌面主进程崩溃后的整树清理、NSIS 打包、签名、packaged runtime 与更新验收仍按上述顺序继续。
+- Windows runtime/pnpm 原生 launcher、桌面主进程崩溃后的整树清理、NSIS 打包、签名、packaged runtime 与更新验收仍待后续完成。
 
-### v0.5 — Linux x64
+### v0.6 — Linux x64
 
 在 Windows 路线稳定后增加 Linux x64 原生构建，优先 AppImage；复用 v0.3 平台边界和 fixture CI 门，并补齐桌面文件、图标、托盘兼容、沙箱、进程树清理、打包 smoke、更新元数据与校验清单。是否同时提供 deb 由真实分发需求决定。
 
 ### 后置评估
 
 - **Windows arm64**：仅在用户需求明确且官方载荷的完整原生依赖可在 Windows arm64 验收通过后加入。
-- **Tauri challenger（v0.6+）**：仅当实测内存数据构成用户问题时启动对比（回收旧规划的评测框架思路），不因跨平台目标提前 fork 官方载荷或更换已验证的 Electron 主路线。
+- **Tauri challenger（v0.7+）**：仅当实测内存数据构成用户问题时启动对比（回收旧规划的评测框架思路），不因跨平台目标提前 fork 官方载荷或更换已验证的 Electron 主路线。
