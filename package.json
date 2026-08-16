@@ -18,6 +18,7 @@
     "test": "node --test test/*.test.js",
     "test:fixture-parity": "node --test acceptance/fixture-parity.test.js",
     "test:packaged": "node --test acceptance/packaged.test.js",
+    "verify:public-update": "node acceptance/public-update.js",
     "dist:mac:arm64": "node build/build-mac.js arm64",
     "dist:mac:x64": "node build/build-mac.js x64",
     "merge:mac:update": "node build/merge-mac-update-info.js"

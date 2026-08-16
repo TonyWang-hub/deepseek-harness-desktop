@@ -96,6 +96,7 @@ test('release dependencies and macOS packaging stay exact and self-contained', a
   assert.equal(pkg.scripts['dist:mac:x64'], 'node build/build-mac.js x64')
   assert.equal(pkg.scripts['merge:mac:update'], 'node build/merge-mac-update-info.js')
   assert.equal(pkg.scripts['test:packaged'], 'node --test acceptance/packaged.test.js')
+  assert.equal(pkg.scripts['verify:public-update'], 'node acceptance/public-update.js')
   assert.equal(pkg.devDependencies.electron, '43.4.0')
   assert.equal(pkg.devDependencies['electron-builder'], '26.15.3')
   assert.equal(pkg.dependencies['electron-updater'], '6.8.9')
