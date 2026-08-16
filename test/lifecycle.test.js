@@ -22,8 +22,14 @@ function launch(args, testRoot, envOverrides = {}) {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
-  child.stdout.on('data', chunk => { output += chunk.toString() })
-  child.stderr.on('data', chunk => { output += chunk.toString() })
+  child.stdout.on('data', chunk => {
+    output += chunk.toString()
+    if (process.env.DSH_TEST_ECHO === '1') process.stderr.write(chunk)
+  })
+  child.stderr.on('data', chunk => {
+    output += chunk.toString()
+    if (process.env.DSH_TEST_ECHO === '1') process.stderr.write(chunk)
+  })
   return { child, output: () => output }
 }
 
@@ -52,6 +58,7 @@ async function control(socketPath, command) {
     const socket = createConnection(socketPath)
     let response = ''
     socket.setEncoding('utf8')
+    socket.setTimeout(10_000, () => socket.destroy(new Error(`Timed out waiting for control command: ${command}`)))
     socket.once('error', reject)
     socket.on('data', chunk => {
       response += chunk
@@ -214,6 +221,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
     }, 'acceptance control and Host readiness', 10_000)
     lastUrl = initial.hostUrl
     assert.equal(initial.windowVisible, true)
+    assert.equal(initial.desktopState, 'ready')
     assert.equal(Number.isInteger(initial.windowId), true)
     assert.equal((await fetch(lastUrl)).ok, true)
 
@@ -238,6 +246,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
           ? snapshot
           : undefined
       }, `Host restart ${crash}`, 15_000)
+      assert.equal(restarted.desktopState, 'ready')
       previousPid = restarted.hostPid
       lastUrl = restarted.hostUrl
     }
@@ -248,6 +257,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
       return snapshot.recoveryOpen && !snapshot.hostPid ? snapshot : undefined
     }, 'open crash circuit', 15_000)
     assert.equal(stopped.windowVisible, true)
+    assert.equal(stopped.desktopState, 'circuit-open')
 
     await control(socketPath, 'retry')
     const recovered = await waitUntil(async () => {
@@ -257,6 +267,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
         : undefined
     }, 'manual Host recovery', 15_000)
     lastUrl = recovered.hostUrl
+    assert.equal(recovered.desktopState, 'ready')
     assert.equal((await fetch(lastUrl)).ok, true)
 
     await control(socketPath, 'quit')

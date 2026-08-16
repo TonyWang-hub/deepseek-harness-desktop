@@ -24,6 +24,7 @@ import {
   createCrashRecovery,
   installCrashActions,
 } from './crash-recovery.js'
+import { createDesktopState } from './desktop-state.js'
 import {
   desktopIconPath,
   installDesktopMenus,
@@ -62,6 +63,8 @@ const crashRecovery = createCrashRecovery({
   crashWindowMs: 60_000,
   crashLimit: 3,
 })
+const desktopState = createDesktopState()
+desktopState.subscribe(snapshot => console.log(`Desktop state: ${snapshot.name}`))
 
 /** @type {import('node:child_process').ChildProcess | undefined} */
 let host
@@ -116,6 +119,7 @@ function startHost() {
       sawReady = true
       hostUrl = m[1]
       recoveryPageUrl = ''
+      desktopState.transition('ready')
       void win?.loadURL(hostUrl)
     }
   }
@@ -143,6 +147,7 @@ function startHost() {
       ? 'The host process could not start.'
       : `The host stopped unexpectedly (code ${failure.code ?? 'null'}, signal ${failure.signal ?? 'null'}).`
     if (decision.action === 'stop') {
+      desktopState.transition('circuit-open', { crashCount: decision.crashCount })
       console.error(`Host recovery circuit opened after ${decision.crashCount} failures`)
       const pageUrl = createCrashPage({ detail })
       recoveryPageUrl = pageUrl
@@ -151,6 +156,7 @@ function startHost() {
       })
       return
     }
+    desktopState.transition('recovering', { retryDelayMs: decision.delayMs })
     win?.loadURL(createCrashPage({ detail, retryDelayMs: decision.delayMs })).catch(() => {})
     restartTimer = setTimeout(() => {
       restartTimer = undefined
@@ -165,6 +171,7 @@ function retryHost() {
   restartTimer = undefined
   recoveryPageUrl = ''
   crashRecovery.reset()
+  desktopState.transition('recovering', { reason: 'manual-retry' })
   startHost()
 }
 
@@ -184,6 +191,7 @@ function stopHost() {
 function exitAfterHost(code) {
   if (quitPromise) return quitPromise
   quitting = true
+  desktopState.transition('quitting')
   quitPromise = stopHost()
     .catch(error => console.error('Host shutdown failed:', error))
     .then(() => app.exit(code))
@@ -263,6 +271,7 @@ if (!lock) {
         snapshot: () => ({
           windowVisible: win?.isVisible() ?? false,
           windowId: win?.id,
+          desktopState: desktopState.get().name,
           hostPid: host?.pid,
           hostUrl,
           recoveryOpen: Boolean(
@@ -293,6 +302,9 @@ if (!lock) {
       isSmoke: SMOKE,
       checkForUpdates: () => autoUpdater.checkForUpdates(),
       notifyDownloaded: updateInfo => {
+        if (desktopState.get().name === 'ready') {
+          desktopState.transition('updating', { version: updateInfo.version })
+        }
         if (!Notification.isSupported()) return
         new Notification({
           title: 'A new update is ready to install',
@@ -310,6 +322,7 @@ if (!lock) {
     if (quitReady) return
     event.preventDefault()
     quitting = true
+    desktopState.transition('quitting')
     acceptanceControl?.close()
     acceptanceControl = undefined
     if (quitPromise) return
