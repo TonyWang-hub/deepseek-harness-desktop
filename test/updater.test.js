@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { runAutoUpdateCheck } from '../src/updater.js'
+import { quitAfterHostStop, runAutoUpdateCheck } from '../src/updater.js'
 
 test('a packaged app checks for updates once', async () => {
   let calls = 0
@@ -74,4 +74,46 @@ test('a download failure after a successful feed check is handled', async () => 
 
   assert.equal(result, false)
   assert.equal(reported, failure)
+})
+
+test('quitting after an update download explicitly installs it', () => {
+  const calls = []
+  const action = quitAfterHostStop({
+    updateDownloaded: true,
+    quitAndInstall: () => calls.push('install'),
+    quit: () => calls.push('quit'),
+    reportError: error => assert.fail(error),
+  })
+
+  assert.equal(action, 'install-update')
+  assert.deepEqual(calls, ['install'])
+})
+
+test('ordinary quit remains unchanged without a downloaded update', () => {
+  const calls = []
+  const action = quitAfterHostStop({
+    updateDownloaded: false,
+    quitAndInstall: () => calls.push('install'),
+    quit: () => calls.push('quit'),
+    reportError: error => assert.fail(error),
+  })
+
+  assert.equal(action, 'quit')
+  assert.deepEqual(calls, ['quit'])
+})
+
+test('a synchronous installer failure is reported before safe quit', () => {
+  const failure = new Error('installer unavailable')
+  const calls = []
+  let reported
+  const action = quitAfterHostStop({
+    updateDownloaded: true,
+    quitAndInstall: () => { throw failure },
+    quit: () => calls.push('quit'),
+    reportError: error => { reported = error },
+  })
+
+  assert.equal(action, 'quit')
+  assert.equal(reported, failure)
+  assert.deepEqual(calls, ['quit'])
 })

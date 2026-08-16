@@ -24,3 +24,31 @@ export async function runAutoUpdateCheck({
     return false
   }
 }
+
+/**
+ * Complete an already requested app quit after Host shutdown.
+ * A downloaded update must use the updater's explicit install path; ordinary
+ * app.quit() only exits and leaves Squirrel's staged application unapplied.
+ *
+ * @param {{updateDownloaded: boolean, quitAndInstall: () => void, quit: () => void, reportError: (error: unknown) => void}} options
+ * @returns {'install-update' | 'quit'}
+ */
+export function quitAfterHostStop({
+  updateDownloaded,
+  quitAndInstall,
+  quit,
+  reportError,
+}) {
+  if (!updateDownloaded) {
+    quit()
+    return 'quit'
+  }
+  try {
+    quitAndInstall()
+    return 'install-update'
+  } catch (error) {
+    reportError(error)
+    quit()
+    return 'quit'
+  }
+}

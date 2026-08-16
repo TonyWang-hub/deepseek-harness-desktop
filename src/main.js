@@ -58,7 +58,7 @@ import { observeHostFailure } from './host-failure.js'
 import { createHostReadinessParser } from './host-readiness.js'
 import { createHostEnvironment } from './host-environment.js'
 import { terminateChild } from './host-lifecycle.js'
-import { runAutoUpdateCheck } from './updater.js'
+import { quitAfterHostStop, runAutoUpdateCheck } from './updater.js'
 import { installWindowSecurity } from './window-security.js'
 
 const require = createRequire(import.meta.url)
@@ -510,7 +510,12 @@ if (!lock) {
       .catch(error => console.error('Host shutdown failed:', error))
       .then(() => {
         quitReady = true
-        app.quit()
+        quitAfterHostStop({
+          updateDownloaded: Boolean(downloadedUpdateVersion),
+          quitAndInstall: () => autoUpdater.quitAndInstall(),
+          quit: () => app.quit(),
+          reportError: reportUpdateError,
+        })
       })
   })
 }
