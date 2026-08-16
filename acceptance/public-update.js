@@ -6,6 +6,7 @@ import {
   copyFile,
   mkdir,
   readdir,
+  rename,
   rm,
   stat,
   writeFile,
@@ -14,6 +15,8 @@ import { createConnection } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+
+import { verifyMacReleaseApp } from '../build/after-sign.js'
 
 const STANDARD_APP_PATH = '/Applications/DeepSeek Harness Desktop.app'
 const DEFAULT_TIMEOUT_MS = 20 * 60_000
@@ -26,6 +29,7 @@ function parseFlags(argv) {
     '--to',
     '--zip',
     '--sha256',
+    '--sha512',
     '--runtime',
     '--timeout-ms',
   ])
@@ -61,7 +65,7 @@ export function parsePublicUpdateArguments(
   if (values.get('--allow-app-mutation') !== true) {
     throw new Error('Public update proof requires --allow-app-mutation')
   }
-  const required = ['--app', '--from', '--to', '--zip', '--sha256', '--runtime']
+  const required = ['--app', '--from', '--to', '--zip', '--sha256', '--sha512', '--runtime']
   for (const name of required) {
     if (!values.get(name)) throw new Error(`Missing required public update argument: ${name}`)
   }
@@ -87,6 +91,11 @@ export function parsePublicUpdateArguments(
   if (!/^[a-f0-9]{64}$/.test(expectedSha256)) {
     throw new Error('Public update SHA-256 must contain exactly 64 hexadecimal characters')
   }
+  const expectedSha512 = values.get('--sha512')
+  const decodedSha512 = Buffer.from(expectedSha512, 'base64')
+  if (decodedSha512.length !== 64 || decodedSha512.toString('base64') !== expectedSha512) {
+    throw new Error('Public update SHA-512 must be the canonical base64 digest from latest-mac.yml')
+  }
   const runtimeRoot = path.resolve(values.get('--runtime'))
   if (runtimeRoot === appPath || runtimeRoot.startsWith(`${appPath}${path.sep}`)) {
     throw new Error('Public update runtime must stay outside the application bundle')
@@ -103,6 +112,7 @@ export function parsePublicUpdateArguments(
     toVersion,
     zipPath,
     expectedSha256,
+    expectedSha512,
     runtimeRoot,
     timeoutMs,
   }
@@ -129,12 +139,8 @@ export async function preparePublicUpdateCache({
   homeDir,
   zipPath,
   expectedSha256,
+  expectedSha512,
 }) {
-  const actualSha256 = await hashFile(zipPath, 'sha256', 'hex')
-  if (actualSha256 !== expectedSha256) {
-    throw new Error(`Public update ZIP SHA-256 mismatch: expected ${expectedSha256}, received ${actualSha256}`)
-  }
-  const sha512 = await hashFile(zipPath, 'sha512', 'base64')
   const pendingDir = path.join(
     homeDir,
     'Library/Caches/deepseek-harness-desktop-updater/pending',
@@ -143,14 +149,34 @@ export async function preparePublicUpdateCache({
   await mkdir(pendingDir, { recursive: true, mode: 0o700 })
   const fileName = path.basename(zipPath)
   const cachedZipPath = path.join(pendingDir, fileName)
+  const temporaryZipPath = `${cachedZipPath}.copying`
   const updateInfoPath = path.join(pendingDir, 'update-info.json')
-  await copyFile(zipPath, cachedZipPath)
-  await writeFile(updateInfoPath, `${JSON.stringify({ fileName, sha512 })}\n`, { mode: 0o600 })
+
+  try {
+    await copyFile(zipPath, temporaryZipPath)
+    const actualSha256 = await hashFile(temporaryZipPath, 'sha256', 'hex')
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(`Public update ZIP SHA-256 mismatch: expected ${expectedSha256}, received ${actualSha256}`)
+    }
+    const actualSha512 = await hashFile(temporaryZipPath, 'sha512', 'base64')
+    if (actualSha512 !== expectedSha512) {
+      throw new Error('Public update ZIP SHA-512 mismatch with latest-mac.yml')
+    }
+    await rename(temporaryZipPath, cachedZipPath)
+    await writeFile(
+      updateInfoPath,
+      `${JSON.stringify({ fileName, sha512: expectedSha512 })}\n`,
+      { mode: 0o600 },
+    )
+  } catch (error) {
+    await rm(pendingDir, { recursive: true, force: true })
+    throw error
+  }
 
   return {
     cachedZipPath,
     updateInfoPath,
-    sha512,
+    sha512: expectedSha512,
   }
 }
 
@@ -172,23 +198,35 @@ async function waitUntil(check, description, timeoutMs, intervalMs = 250) {
   throw new Error(`Timed out waiting for ${description}${detail}`)
 }
 
-function control(socketPath, command) {
+export function requestAcceptanceControl(socketPath, command, timeoutMs = 5_000) {
   return new Promise((resolve, reject) => {
     const socket = createConnection(socketPath)
     let response = ''
+    let settled = false
+    const finish = (error, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      socket.destroy()
+      if (error) reject(error)
+      else resolve(value)
+    }
+    const timer = setTimeout(() => {
+      finish(new Error(`Timed out waiting for acceptance command: ${command}`))
+    }, timeoutMs)
+    timer.unref?.()
     socket.setEncoding('utf8')
-    socket.once('error', reject)
+    socket.once('error', error => finish(error))
     socket.on('data', chunk => {
       response += chunk
       const newline = response.indexOf('\n')
       if (newline === -1) return
-      socket.end()
       try {
         const parsed = JSON.parse(response.slice(0, newline))
-        if (!parsed.ok) reject(new Error(parsed.error))
-        else resolve(parsed.value)
+        if (!parsed.ok) finish(new Error(parsed.error))
+        else finish(undefined, parsed.value)
       } catch (error) {
-        reject(error)
+        finish(error)
       }
     })
     socket.once('connect', () => socket.write(`${JSON.stringify({ command })}\n`))
@@ -202,6 +240,68 @@ function processExists(pid) {
   } catch (error) {
     if (error.code === 'ESRCH') return false
     throw error
+  }
+}
+
+async function readProcessIdentity(pid) {
+  try {
+    const { stdout } = await execFileAsync('ps', [
+      '-o',
+      'ppid=,command=',
+      '-p',
+      String(pid),
+    ])
+    const match = /^\s*(\d+)\s+(.+)$/.exec(stdout.trim())
+    return match
+      ? { pid, parentPid: Number(match[1]), command: match[2] }
+      : undefined
+  } catch (error) {
+    if (error.code === 1) return undefined
+    throw error
+  }
+}
+
+export async function captureOwnedHostProcess(pid, expectedParentPid) {
+  const identity = await readProcessIdentity(pid)
+  if (!identity
+    || identity.parentPid !== expectedParentPid
+    || !/@deepseek-ai\/dsh\/lib\/bin\.js web --port 0(?:\s|$)/.test(identity.command)) {
+    throw new Error(`Host PID ${pid} does not match the owned DSH process identity`)
+  }
+  return identity
+}
+
+export async function terminateOwnedHostProcesses({
+  ownedHosts,
+  timeoutMs = 10_000,
+}) {
+  const stillMatches = async identity => {
+    const current = await readProcessIdentity(identity.pid)
+    // The Host can be reparented after its owned app exits; its captured exact
+    // command still distinguishes it from a reused PID before any signal.
+    return current && current.command === identity.command
+  }
+  const matching = async () => {
+    const matches = []
+    for (const identity of ownedHosts) {
+      if (await stillMatches(identity)) matches.push(identity)
+    }
+    return matches
+  }
+  const signal = async name => {
+    for (const identity of await matching()) {
+      try { process.kill(identity.pid, name) } catch (error) {
+        if (error.code !== 'ESRCH') throw error
+      }
+    }
+  }
+
+  await signal('SIGTERM')
+  try {
+    await waitUntil(async () => (await matching()).length === 0, 'owned Host cleanup', timeoutMs)
+  } catch {
+    await signal('SIGKILL')
+    await waitUntil(async () => (await matching()).length === 0, 'forced owned Host cleanup', timeoutMs)
   }
 }
 
@@ -245,6 +345,22 @@ function childExitPromise(child) {
   })
 }
 
+function waitForSpawn(child, timeoutMs = 10_000) {
+  if (Number.isInteger(child.pid)) return Promise.resolve(child.pid)
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timed out waiting for source application spawn')), timeoutMs)
+    timer.unref?.()
+    child.once('spawn', () => {
+      clearTimeout(timer)
+      resolve(child.pid)
+    })
+    child.once('error', error => {
+      clearTimeout(timer)
+      reject(error)
+    })
+  })
+}
+
 async function ensurePrivateRuntime(runtimeRoot) {
   try {
     const metadata = await stat(runtimeRoot)
@@ -259,21 +375,29 @@ async function ensurePrivateRuntime(runtimeRoot) {
   }
 }
 
-async function terminateApplication(appExecutable) {
-  const initial = await applicationPids(appExecutable)
-  for (const pid of initial) {
-    try { process.kill(pid, 'SIGTERM') } catch (error) {
-      if (error.code !== 'ESRCH') throw error
-    }
+export async function terminateOwnedApplicationProcesses({
+  appExecutable,
+  ownedPids,
+  timeoutMs = 10_000,
+}) {
+  const matchingOwnedPids = async () => {
+    const matching = new Set(await applicationPids(appExecutable))
+    return [...ownedPids].filter(pid => Number.isInteger(pid) && matching.has(pid))
   }
-  try {
-    await waitUntil(async () => (await applicationPids(appExecutable)).length === 0, 'test application cleanup', 10_000)
-  } catch {
-    for (const pid of await applicationPids(appExecutable)) {
-      try { process.kill(pid, 'SIGKILL') } catch (error) {
+  const signal = async name => {
+    for (const pid of await matchingOwnedPids()) {
+      try { process.kill(pid, name) } catch (error) {
         if (error.code !== 'ESRCH') throw error
       }
     }
+  }
+
+  await signal('SIGTERM')
+  try {
+    await waitUntil(async () => (await matchingOwnedPids()).length === 0, 'owned test application cleanup', timeoutMs)
+  } catch {
+    await signal('SIGKILL')
+    await waitUntil(async () => (await matchingOwnedPids()).length === 0, 'forced owned test application cleanup', timeoutMs)
   }
 }
 
@@ -315,13 +439,15 @@ export async function runPublicUpdateProof(options) {
     toVersion,
     zipPath,
     expectedSha256,
+    expectedSha512,
     runtimeRoot,
     timeoutMs,
   } = options
   const appExecutable = path.join(appPath, 'Contents/MacOS/DeepSeek Harness Desktop')
   const socketPath = path.join(runtimeRoot, 'control.sock')
   let child
-  let ownsApplication = false
+  const ownedApplicationPids = new Set()
+  const ownedHosts = []
   let readOutput = () => ''
   let baselineHost
   let updatedHost
@@ -337,7 +463,12 @@ export async function runPublicUpdateProof(options) {
     await ensurePrivateRuntime(runtimeRoot)
     const homeDir = path.join(runtimeRoot, 'home')
     await mkdir(homeDir, { recursive: true, mode: 0o700 })
-    await preparePublicUpdateCache({ homeDir, zipPath, expectedSha256 })
+    const updateCache = await preparePublicUpdateCache({
+      homeDir,
+      zipPath,
+      expectedSha256,
+      expectedSha512,
+    })
 
     child = spawn(appExecutable, [
       `--user-data-dir=${path.join(runtimeRoot, 'electron')}`,
@@ -350,20 +481,24 @@ export async function runPublicUpdateProof(options) {
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    ownsApplication = true
     readOutput = captureOutput(child)
+    ownedApplicationPids.add(await waitForSpawn(child))
     const exitPromise = childExitPromise(child)
 
     baselineHost = await waitUntil(async () => {
-      const snapshot = await control(socketPath, 'snapshot')
+      const snapshot = await requestAcceptanceControl(socketPath, 'snapshot')
       return snapshot.hostPid && snapshot.hostUrl ? snapshot : false
     }, 'source application Host readiness', timeoutMs)
+    ownedHosts.push(await captureOwnedHostProcess(baselineHost.hostPid, child.pid))
     await waitUntil(async () => {
-      const snapshot = await control(socketPath, 'snapshot')
+      const snapshot = await requestAcceptanceControl(socketPath, 'snapshot')
       return snapshot.desktopState === 'updating' ? snapshot : false
     }, `downloaded public v${toVersion} update`, timeoutMs, 1_000)
+    if (!readOutput().includes(`Update has already been downloaded to ${updateCache.cachedZipPath}`)) {
+      throw new Error('Updater did not accept the verified preloaded public ZIP cache entry')
+    }
 
-    await control(socketPath, 'quit')
+    await requestAcceptanceControl(socketPath, 'quit')
     await waitForChildExit(exitPromise, timeoutMs)
     await waitForHostRelease(baselineHost, 'source Host')
     await waitUntil(
@@ -374,17 +509,22 @@ export async function runPublicUpdateProof(options) {
     )
 
     updatedHost = await waitUntil(async () => {
-      const snapshot = await control(socketPath, 'snapshot')
-      return snapshot.hostPid && snapshot.hostUrl ? snapshot : false
+      const snapshot = await requestAcceptanceControl(socketPath, 'snapshot')
+      return Number.isInteger(snapshot.appPid) && snapshot.hostPid && snapshot.hostUrl
+        ? snapshot
+        : false
     }, 'automatically relaunched target application Host readiness', timeoutMs)
+    ownedApplicationPids.add(updatedHost.appPid)
+    ownedHosts.push(await captureOwnedHostProcess(updatedHost.hostPid, updatedHost.appPid))
     if (updatedHost.hostPid === baselineHost.hostPid) {
       throw new Error('Updated application reused the source Host PID')
     }
+    await verifyMacReleaseApp({ appPath, execFile: execFileAsync })
 
-    await control(socketPath, 'quit')
+    await requestAcceptanceControl(socketPath, 'quit')
     await waitUntil(
-      async () => (await applicationPids(appExecutable)).length === 0,
-      'target application exit',
+      () => !processExists(updatedHost.appPid),
+      'owned target application exit',
       30_000,
     )
     await waitForHostRelease(updatedHost, 'target Host')
@@ -396,6 +536,9 @@ export async function runPublicUpdateProof(options) {
       updatedHostPid: updatedHost.hostPid,
       installedVersion: await bundleVersion(appPath),
       automaticRelaunch: true,
+      codeSignatureValid: true,
+      gatekeeperAccepted: true,
+      notarizationTicketValid: true,
       baselineHostExited: true,
       baselinePortReleased: true,
       finalHostExited: true,
@@ -406,15 +549,11 @@ export async function runPublicUpdateProof(options) {
     if (output) error.message = `${error.message}\n--- application output ---\n${output}`
     throw error
   } finally {
-    if (ownsApplication) {
-      if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM')
-      await terminateApplication(appExecutable)
-      if (updatedHost?.hostPid && processExists(updatedHost.hostPid)) {
-        try { process.kill(updatedHost.hostPid, 'SIGKILL') } catch (error) {
-          if (error.code !== 'ESRCH') throw error
-        }
-      }
-    }
+    await terminateOwnedApplicationProcesses({
+      appExecutable,
+      ownedPids: ownedApplicationPids,
+    })
+    await terminateOwnedHostProcesses({ ownedHosts })
   }
 }
 

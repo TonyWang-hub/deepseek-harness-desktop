@@ -189,6 +189,7 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
       }
     }, 'packaged resident Host readiness', 30_000)
     hostUrl = initial.hostUrl
+    assert.equal(initial.appPid, child.pid)
     assert.equal(Number.isInteger(initial.windowId), true)
     assert.equal(initial.desktopState, 'ready')
     assert.equal(initial.crashCount, 0)

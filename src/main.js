@@ -421,6 +421,7 @@ if (!lock) {
       socketPath: process.env.DSH_DESKTOP_ACCEPTANCE_SOCKET,
       handlers: {
         snapshot: () => ({
+          appPid: process.pid,
           windowVisible: win?.isVisible() ?? false,
           windowId: win?.id,
           windowUrl: win?.webContents.getURL(),

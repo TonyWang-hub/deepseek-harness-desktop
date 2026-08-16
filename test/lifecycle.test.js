@@ -237,6 +237,7 @@ test('macOS resume distinguishes page, network, and Host recovery', {
       }
     }, 'resume acceptance Host readiness', 20_000)
     latestUrl = initial.hostUrl
+    assert.equal(initial.appPid, desktop.child.pid)
     assert.equal(initial.crashCount, 0)
 
     const diagnostics = await control(socketPath, 'diagnostics')
