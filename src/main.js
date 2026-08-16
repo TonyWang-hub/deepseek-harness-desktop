@@ -15,6 +15,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   Menu,
   nativeImage,
   net as electronNet,
@@ -26,6 +27,8 @@ import {
 import electronUpdater from 'electron-updater'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { release as osRelease } from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { installAcceptanceControl } from './acceptance-control.js'
@@ -38,6 +41,11 @@ import {
   createCrashRecovery,
   installCrashActions,
 } from './crash-recovery.js'
+import {
+  buildDiagnosticReport,
+  checkRuntimeTools,
+  saveDiagnosticReport,
+} from './diagnostics.js'
 import { createDesktopState } from './desktop-state.js'
 import {
   desktopIconPath,
@@ -59,6 +67,7 @@ autoUpdater.on('error', reportUpdateError)
 
 /** Absolute path of the pinned payload's CLI entry (resolved, never guessed; the package ships no exports map, so the classic subpath applies). */
 const DSH_BIN = require.resolve('@deepseek-ai/dsh/lib/bin.js')
+const DSH_VERSION = require('@deepseek-ai/dsh/package.json').version
 /** Clears Electron's Node-mode marker before the official host loads or spawns user commands. */
 const HOST_BOOTSTRAP = fileURLToPath(new URL('./host-bootstrap.js', import.meta.url))
 
@@ -228,6 +237,67 @@ async function restartUnhealthyHost() {
   if (!quitting) startHost()
 }
 
+async function createCurrentDiagnosticReport() {
+  const appRoot = app.getAppPath()
+  const executableSuffix = process.platform === 'win32' ? '.exe' : ''
+  const tools = await checkRuntimeTools([
+    { name: 'electron-node', path: process.execPath, mode: 'executable' },
+    { name: 'desktop-node-launcher', path: path.join(appRoot, `bin/node${executableSuffix}`), mode: 'executable' },
+    { name: 'desktop-pnpm-launcher', path: path.join(appRoot, `bin/pnpm${process.platform === 'win32' ? '.cmd' : ''}`), mode: 'executable' },
+    { name: 'official-dsh', path: DSH_BIN, mode: 'readable' },
+    { name: 'host-bootstrap', path: HOST_BOOTSTRAP, mode: 'readable' },
+  ])
+  const parsedPort = hostUrl ? Number(new URL(hostUrl).port) : undefined
+  const state = desktopState.get()
+  return buildDiagnosticReport({
+    application: {
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      payloadVersion: DSH_VERSION,
+    },
+    system: {
+      platform: process.platform,
+      release: osRelease(),
+      arch: process.arch,
+      electron: process.versions.electron,
+      node: process.versions.node,
+    },
+    desktop: {
+      state,
+      hostRunning: Boolean(host?.pid),
+      hostPid: host?.pid,
+      hostPort: Number.isInteger(parsedPort) ? parsedPort : undefined,
+      dshHomeConfigured: Boolean(process.env.DSH_HOME),
+      updateReady: state.name === 'updating',
+    },
+    tools,
+  })
+}
+
+async function exportCurrentDiagnostics() {
+  const options = {
+    title: 'Export DeepSeek Harness Diagnostics',
+    defaultPath: 'DeepSeek-Harness-Diagnostics.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  }
+  const selection = win
+    ? await dialog.showSaveDialog(win, options)
+    : await dialog.showSaveDialog(options)
+  if (selection.canceled || !selection.filePath) return false
+  try {
+    await saveDiagnosticReport(selection.filePath, await createCurrentDiagnosticReport())
+    return true
+  } catch (error) {
+    console.error(`Diagnostic export failed: ${error?.code ?? 'unknown'}`)
+    await dialog.showMessageBox({
+      type: 'error',
+      message: 'Could not export diagnostics',
+      detail: 'No diagnostic data was written. Please choose another location and try again.',
+    })
+    return false
+  }
+}
+
 const connectionRecovery = createConnectionRecovery({
   state: desktopState,
   isOnline: () => acceptanceOnlineOverride ?? electronNet.isOnline(),
@@ -312,6 +382,7 @@ if (!lock) {
           platform: process.platform,
         }),
         showWindow,
+        exportDiagnostics: () => { void exportCurrentDiagnostics() },
         quit: () => app.quit(),
       })
     }
@@ -340,6 +411,7 @@ if (!lock) {
           if (!tray) throw new Error('Tray is not installed')
           tray.emit('click')
         },
+        diagnostics: () => createCurrentDiagnosticReport(),
         resume: () => powerMonitor.emit('resume'),
         'offline-resume': () => {
           acceptanceOnlineOverride = false

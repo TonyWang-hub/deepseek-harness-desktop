@@ -147,11 +147,13 @@ test('the packaged app completes smoke with clean data and releases its port', {
 test('the packaged tray keeps the Host resident, restores one window, and quits cleanly', { timeout: 120_000 }, async () => {
   const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-packaged-resident-'))
   const socketPath = path.join(testRoot, 'control.sock')
+  const diagnosticSecret = 'packaged_diagnostic_secret_should_never_appear'
   const child = spawn(appExecutable, [`--user-data-dir=${path.join(testRoot, 'electron')}`], {
     env: {
       ...process.env,
       DSH_HOME: path.join(testRoot, 'dsh'),
       DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath,
+      DSH_DESKTOP_DIAGNOSTIC_SECRET: diagnosticSecret,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -170,6 +172,17 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
     }, 'packaged resident Host readiness', 30_000)
     hostUrl = initial.hostUrl
     assert.equal(Number.isInteger(initial.windowId), true)
+    assert.equal(initial.desktopState, 'ready')
+
+    const diagnostics = await control(socketPath, 'diagnostics')
+    assert.equal(diagnostics.application.packaged, true)
+    assert.equal(diagnostics.application.officialPayloadVersion, '0.1.0-rc.6')
+    assert.equal(diagnostics.desktop.hostPid, initial.hostPid)
+    assert.equal(diagnostics.runtimeTools.every(tool => tool.status === 'ok'), true)
+    const serializedDiagnostics = JSON.stringify(diagnostics)
+    assert.equal(serializedDiagnostics.includes(testRoot), false)
+    assert.equal(serializedDiagnostics.includes(diagnosticSecret), false)
+    assert.equal(serializedDiagnostics.includes(socketPath), false)
 
     await control(socketPath, 'close-window')
     const hidden = await control(socketPath, 'snapshot')

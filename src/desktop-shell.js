@@ -39,9 +39,11 @@ export function showDesktopWindow({ getWindow, createWindow, platform, focusApp 
   window.focus()
 }
 
-function desktopMenuTemplate({ showWindow, quit }) {
+function desktopMenuTemplate({ showWindow, exportDiagnostics, quit }) {
   return [
     { label: 'Open', click: showWindow },
+    { type: 'separator' },
+    { label: 'Export Diagnostics…', click: exportDiagnostics },
     { type: 'separator' },
     { label: 'Quit', click: quit },
   ]
@@ -50,7 +52,7 @@ function desktopMenuTemplate({ showWindow, quit }) {
 /**
  * Install the cross-platform tray menu and the matching macOS Dock menu.
  *
- * @param {{app: Electron.App, Menu: typeof Electron.Menu, Tray: typeof Electron.Tray, nativeImage: typeof Electron.nativeImage, platform: NodeJS.Platform, iconPath: string, showWindow: () => void, quit: () => void}} options
+ * @param {{app: Electron.App, Menu: typeof Electron.Menu, Tray: typeof Electron.Tray, nativeImage: typeof Electron.nativeImage, platform: NodeJS.Platform, iconPath: string, showWindow: () => void, exportDiagnostics: () => void, quit: () => void}} options
  */
 export function installDesktopMenus({
   app,
@@ -60,17 +62,18 @@ export function installDesktopMenus({
   platform,
   iconPath,
   showWindow,
+  exportDiagnostics,
   quit,
 }) {
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
   if (platform === 'darwin') icon.setTemplateImage(true)
   const tray = new Tray(icon)
   tray.setToolTip('DeepSeek Harness Desktop')
-  tray.setContextMenu(Menu.buildFromTemplate(desktopMenuTemplate({ showWindow, quit })))
+  tray.setContextMenu(Menu.buildFromTemplate(desktopMenuTemplate({ showWindow, exportDiagnostics, quit })))
   tray.on('click', showWindow)
 
   if (platform === 'darwin') {
-    app.dock.setMenu(Menu.buildFromTemplate(desktopMenuTemplate({ showWindow, quit })))
+    app.dock.setMenu(Menu.buildFromTemplate(desktopMenuTemplate({ showWindow, exportDiagnostics, quit })))
   }
   return tray
 }

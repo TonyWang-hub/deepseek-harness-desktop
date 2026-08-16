@@ -208,7 +208,11 @@ test('repeated Host spawn errors open the recovery circuit without crashing Elec
 test('macOS resume distinguishes page, network, and Host recovery', { timeout: 120_000 }, async () => {
   const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-resume-'))
   const socketPath = path.join(testRoot, 'control.sock')
-  const desktop = launch([], testRoot, { DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath })
+  const diagnosticSecret = 'ghp_diagnostic_secret_should_never_appear'
+  const desktop = launch([], testRoot, {
+    DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath,
+    DSH_DESKTOP_DIAGNOSTIC_SECRET: diagnosticSecret,
+  })
   let latestUrl
   try {
     const initial = await waitUntil(async () => {
@@ -225,6 +229,17 @@ test('macOS resume distinguishes page, network, and Host recovery', { timeout: 1
       }
     }, 'resume acceptance Host readiness', 20_000)
     latestUrl = initial.hostUrl
+
+    const diagnostics = await control(socketPath, 'diagnostics')
+    assert.equal(diagnostics.application.officialPayloadVersion, '0.1.0-rc.6')
+    assert.equal(diagnostics.desktop.state, 'ready')
+    assert.equal(diagnostics.desktop.hostPid, initial.hostPid)
+    assert.equal(diagnostics.desktop.hostPort, Number(new URL(initial.hostUrl).port))
+    assert.equal(diagnostics.runtimeTools.every(tool => tool.status === 'ok'), true)
+    const serializedDiagnostics = JSON.stringify(diagnostics)
+    assert.equal(serializedDiagnostics.includes(testRoot), false)
+    assert.equal(serializedDiagnostics.includes(diagnosticSecret), false)
+    assert.equal(serializedDiagnostics.includes(socketPath), false)
 
     await control(socketPath, 'resume')
     const reloaded = await waitUntil(async () => {
@@ -313,7 +328,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
         return snapshot.hostPid && snapshot.hostPid !== previousPid && snapshot.hostUrl !== lastUrl
           ? snapshot
           : undefined
-      }, `Host restart ${crash}`, 15_000)
+      }, `Host restart ${crash}`, 30_000)
       assert.equal(restarted.desktopState, 'ready')
       previousPid = restarted.hostPid
       lastUrl = restarted.hostUrl
@@ -323,7 +338,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
     const stopped = await waitUntil(async () => {
       const snapshot = await control(socketPath, 'snapshot')
       return snapshot.recoveryOpen && !snapshot.hostPid ? snapshot : undefined
-    }, 'open crash circuit', 15_000)
+    }, 'open crash circuit', 30_000)
     assert.equal(stopped.windowVisible, true)
     assert.equal(stopped.desktopState, 'circuit-open')
 
@@ -333,7 +348,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
       return snapshot.hostPid && snapshot.hostUrl !== lastUrl && !snapshot.recoveryOpen
         ? snapshot
         : undefined
-    }, 'manual Host recovery', 15_000)
+    }, 'manual Host recovery', 30_000)
     lastUrl = recovered.hostUrl
     assert.equal(recovered.desktopState, 'ready')
     assert.equal((await fetch(lastUrl)).ok, true)

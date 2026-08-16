@@ -54,7 +54,7 @@ test('closing the window is allowed while the application quits', () => {
   assert.equal(window.hidden, false)
 })
 
-test('desktop menus expose one open action and one explicit quit action', () => {
+test('desktop menus expose open, private diagnostics, and explicit quit actions', () => {
   const builtTemplates = []
   const Menu = {
     buildFromTemplate(template) {
@@ -72,6 +72,7 @@ test('desktop menus expose one open action and one explicit quit action', () => 
   }
   const app = { dock: { setMenu(menu) { this.menu = menu } } }
   let opened = 0
+  let diagnostics = 0
   let quit = 0
 
   const tray = installDesktopMenus({
@@ -82,16 +83,20 @@ test('desktop menus expose one open action and one explicit quit action', () => 
     platform: 'darwin',
     iconPath: '/app/icon.png',
     showWindow: () => { opened += 1 },
+    exportDiagnostics: () => { diagnostics += 1 },
     quit: () => { quit += 1 },
   })
 
   assert.equal(builtTemplates.length, 2)
-  assert.deepEqual(builtTemplates[0].map(item => item.label ?? item.type), ['Open', 'separator', 'Quit'])
-  assert.deepEqual(builtTemplates[1].map(item => item.label ?? item.type), ['Open', 'separator', 'Quit'])
+  const labels = ['Open', 'separator', 'Export Diagnostics…', 'separator', 'Quit']
+  assert.deepEqual(builtTemplates[0].map(item => item.label ?? item.type), labels)
+  assert.deepEqual(builtTemplates[1].map(item => item.label ?? item.type), labels)
   builtTemplates[0][0].click()
   builtTemplates[0][2].click()
+  builtTemplates[0][4].click()
   tray.emit('click')
   assert.equal(opened, 2)
+  assert.equal(diagnostics, 1)
   assert.equal(quit, 1)
   assert.equal(image.template, true)
 })
