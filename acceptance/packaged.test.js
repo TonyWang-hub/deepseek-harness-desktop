@@ -165,7 +165,12 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
     const initial = await waitUntil(async () => {
       try {
         const snapshot = await control(socketPath, 'snapshot')
-        return snapshot.hostUrl ? snapshot : undefined
+        return snapshot.desktopState === 'ready'
+          && snapshot.hostUrl
+          && snapshot.pageLoadCount >= 2
+          && snapshot.windowUrl.startsWith(snapshot.hostUrl)
+          ? snapshot
+          : undefined
       } catch {
         return undefined
       }
@@ -184,22 +189,58 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
     assert.equal(serializedDiagnostics.includes(diagnosticSecret), false)
     assert.equal(serializedDiagnostics.includes(socketPath), false)
 
+    await control(socketPath, 'resume')
+    const reloaded = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'ready' && snapshot.pageLoadCount > initial.pageLoadCount
+        ? snapshot
+        : undefined
+    }, 'packaged page-only wake recovery', 20_000)
+    assert.equal(reloaded.windowId, initial.windowId)
+    assert.equal(reloaded.hostPid, initial.hostPid)
+    assert.equal(reloaded.hostUrl, initial.hostUrl)
+
+    await control(socketPath, 'offline-resume')
+    const offline = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'disconnected' ? snapshot : undefined
+    }, 'packaged offline wait state', 10_000)
+    assert.equal(offline.hostPid, initial.hostPid)
+
+    await control(socketPath, 'online')
+    const online = await control(socketPath, 'snapshot')
+    assert.equal(online.desktopState, 'ready')
+    assert.equal(online.hostPid, initial.hostPid)
+
+    await control(socketPath, 'unhealthy-resume')
+    const active = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'ready'
+        && snapshot.hostPid !== initial.hostPid
+        && snapshot.hostUrl !== initial.hostUrl
+        ? snapshot
+        : undefined
+    }, 'packaged unhealthy Host replacement', 30_000)
+    assert.equal(active.windowId, initial.windowId)
+    await waitUntil(() => !processExists(initial.hostPid), 'replaced packaged Host exit', 10_000)
+    hostUrl = active.hostUrl
+
     await control(socketPath, 'close-window')
     const hidden = await control(socketPath, 'snapshot')
     assert.equal(hidden.windowVisible, false)
-    assert.equal(hidden.hostPid, initial.hostPid)
+    assert.equal(hidden.hostPid, active.hostPid)
     assert.equal((await fetch(hostUrl)).ok, true)
 
     await control(socketPath, 'tray-open')
     const restored = await control(socketPath, 'snapshot')
     assert.equal(restored.windowVisible, true)
     assert.equal(restored.windowId, initial.windowId)
-    assert.equal(restored.hostPid, initial.hostPid)
+    assert.equal(restored.hostPid, active.hostPid)
 
     await control(socketPath, 'quit')
     assert.equal(await waitForExit(child), 0, output)
     await assert.rejects(fetch(hostUrl))
-    await waitUntil(() => !processExists(initial.hostPid), 'packaged Host exit after explicit quit', 10_000)
+    await waitUntil(() => !processExists(active.hostPid), 'packaged Host exit after explicit quit', 10_000)
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
     await rm(socketPath, { force: true })
