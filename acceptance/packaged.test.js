@@ -92,6 +92,19 @@ function processExists(pid) {
   }
 }
 
+async function hostPids(parentPid) {
+  const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,command='])
+  const matches = []
+  for (const line of stdout.trim().split('\n')) {
+    const match = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line)
+    if (match && Number(match[2]) === parentPid
+      && /@deepseek-ai\/dsh\/lib\/bin\.js web --port 0/.test(match[3])) {
+      matches.push(Number(match[1]))
+    }
+  }
+  return matches
+}
+
 async function waitForExit(child, timeoutMs = 15_000) {
   if (child.exitCode !== null || child.signalCode !== null) return child.exitCode
   return Promise.race([
@@ -178,6 +191,7 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
     hostUrl = initial.hostUrl
     assert.equal(Number.isInteger(initial.windowId), true)
     assert.equal(initial.desktopState, 'ready')
+    assert.equal(initial.crashCount, 0)
 
     const diagnostics = await control(socketPath, 'diagnostics')
     assert.equal(diagnostics.application.packaged, true)
@@ -188,6 +202,17 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
     assert.equal(serializedDiagnostics.includes(testRoot), false)
     assert.equal(serializedDiagnostics.includes(diagnosticSecret), false)
     assert.equal(serializedDiagnostics.includes(socketPath), false)
+
+    assert.deepEqual(await control(socketPath, 'save-diagnostics'), { fileName: 'diagnostics.json' })
+    const diagnosticPath = path.join(testRoot, 'diagnostics.json')
+    assert.equal((await stat(diagnosticPath)).mode & 0o777, 0o600)
+    const savedDiagnostics = await readFile(diagnosticPath, 'utf8')
+    const savedReport = JSON.parse(savedDiagnostics)
+    assert.equal(savedReport.application.packaged, true)
+    assert.equal(savedReport.desktop.hostPid, initial.hostPid)
+    assert.equal(savedDiagnostics.includes(testRoot), false)
+    assert.equal(savedDiagnostics.includes(diagnosticSecret), false)
+    assert.equal(savedDiagnostics.includes(socketPath), false)
 
     await control(socketPath, 'resume')
     const reloaded = await waitUntil(async () => {
@@ -206,6 +231,7 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
       return snapshot.desktopState === 'disconnected' ? snapshot : undefined
     }, 'packaged offline wait state', 10_000)
     assert.equal(offline.hostPid, initial.hostPid)
+    assert.equal(offline.crashCount, 0)
 
     await control(socketPath, 'online')
     const online = await control(socketPath, 'snapshot')
@@ -222,7 +248,9 @@ test('the packaged tray keeps the Host resident, restores one window, and quits 
         : undefined
     }, 'packaged unhealthy Host replacement', 30_000)
     assert.equal(active.windowId, initial.windowId)
+    assert.equal(active.crashCount, 0)
     await waitUntil(() => !processExists(initial.hostPid), 'replaced packaged Host exit', 10_000)
+    assert.deepEqual(await hostPids(child.pid), [active.hostPid])
     hostUrl = active.hostUrl
 
     await control(socketPath, 'close-window')

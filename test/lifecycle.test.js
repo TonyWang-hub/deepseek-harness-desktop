@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -80,16 +80,21 @@ async function childPids(parentPid) {
     .map(([pid]) => pid)
 }
 
-async function hostPid(parentPid) {
+async function hostPids(parentPid) {
   const { stdout } = await execFileAsync('ps', ['-axo', 'pid=,ppid=,command='])
+  const matches = []
   for (const line of stdout.trim().split('\n')) {
     const match = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line)
     if (match && Number(match[2]) === parentPid
       && /@deepseek-ai\/dsh\/lib\/bin\.js web --port 0/.test(match[3])) {
-      return Number(match[1])
+      matches.push(Number(match[1]))
     }
   }
-  return undefined
+  return matches
+}
+
+async function hostPid(parentPid) {
+  return (await hostPids(parentPid))[0]
 }
 
 function processExists(pid) {
@@ -229,6 +234,7 @@ test('macOS resume distinguishes page, network, and Host recovery', { timeout: 1
       }
     }, 'resume acceptance Host readiness', 20_000)
     latestUrl = initial.hostUrl
+    assert.equal(initial.crashCount, 0)
 
     const diagnostics = await control(socketPath, 'diagnostics')
     assert.equal(diagnostics.application.officialPayloadVersion, '0.1.0-rc.6')
@@ -240,6 +246,17 @@ test('macOS resume distinguishes page, network, and Host recovery', { timeout: 1
     assert.equal(serializedDiagnostics.includes(testRoot), false)
     assert.equal(serializedDiagnostics.includes(diagnosticSecret), false)
     assert.equal(serializedDiagnostics.includes(socketPath), false)
+
+    assert.deepEqual(await control(socketPath, 'save-diagnostics'), { fileName: 'diagnostics.json' })
+    const diagnosticPath = path.join(testRoot, 'diagnostics.json')
+    assert.equal((await stat(diagnosticPath)).mode & 0o777, 0o600)
+    const savedDiagnostics = await readFile(diagnosticPath, 'utf8')
+    const savedReport = JSON.parse(savedDiagnostics)
+    assert.equal(savedReport.schemaVersion, 1)
+    assert.deepEqual(savedReport.application, diagnostics.application)
+    assert.equal(savedReport.desktop.hostPid, initial.hostPid)
+    assert.equal(savedDiagnostics.includes(testRoot), false)
+    assert.equal(savedDiagnostics.includes(diagnosticSecret), false)
 
     await control(socketPath, 'resume')
     const reloaded = await waitUntil(async () => {
@@ -259,6 +276,7 @@ test('macOS resume distinguishes page, network, and Host recovery', { timeout: 1
     }, 'offline wait state', 10_000)
     assert.equal(offline.hostPid, initial.hostPid)
     assert.equal(offline.hostUrl, initial.hostUrl)
+    assert.equal(offline.crashCount, 0)
 
     await control(socketPath, 'online')
     const online = await control(socketPath, 'snapshot')
@@ -277,7 +295,9 @@ test('macOS resume distinguishes page, network, and Host recovery', { timeout: 1
     }, 'unhealthy Host replacement', 20_000)
     latestUrl = restarted.hostUrl
     assert.equal(restarted.windowId, initial.windowId)
+    assert.equal(restarted.crashCount, 0)
     assert.equal(processExists(initial.hostPid), false)
+    assert.deepEqual(await hostPids(desktop.child.pid), [restarted.hostPid])
 
     await control(socketPath, 'quit')
     assert.equal((await waitForExit(desktop.child)).code, 0, desktop.output())

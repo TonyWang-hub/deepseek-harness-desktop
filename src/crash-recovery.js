@@ -48,10 +48,13 @@ export function installCrashActions({ webContents, getRecoveryUrl, retry, quit }
 export function createCrashRecovery({ baseDelayMs, maxDelayMs, crashWindowMs, crashLimit }) {
   /** @type {number[]} */
   let exits = []
+  const prune = now => {
+    exits = exits.filter(timestamp => now - timestamp < crashWindowMs)
+  }
 
   return {
     recordExit(now = Date.now()) {
-      exits = exits.filter(timestamp => now - timestamp < crashWindowMs)
+      prune(now)
       exits.push(now)
       const crashCount = exits.length
       if (crashCount >= crashLimit) return { action: 'stop', crashCount }
@@ -60,6 +63,10 @@ export function createCrashRecovery({ baseDelayMs, maxDelayMs, crashWindowMs, cr
         delayMs: Math.min(baseDelayMs * (2 ** (crashCount - 1)), maxDelayMs),
         crashCount,
       }
+    },
+    count(now = Date.now()) {
+      prune(now)
+      return exits.length
     },
     reset() {
       exits = []

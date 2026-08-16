@@ -35,6 +35,24 @@ test('a healthy Host after resume reloads only the page transport', async () => 
   assert.equal(restarts, 0)
 })
 
+test('healthy wake preserves an already downloaded update state', async () => {
+  const state = readyState()
+  state.transition('updating', { version: '0.4.0' })
+  const recovery = createConnectionRecovery({
+    state,
+    isOnline: () => true,
+    hasHostTarget: () => true,
+    probeHost: async () => true,
+    reloadPage: async () => {},
+    restartHost: async () => {},
+    getReadyTransition: () => ({ name: 'updating', detail: { version: '0.4.0' } }),
+  })
+
+  await recovery.recover('resume')
+  assert.deepEqual(state.get().detail, { version: '0.4.0' })
+  assert.equal(state.get().name, 'updating')
+})
+
 test('offline recovery waits without probing, restarting, or opening the crash circuit', async () => {
   const state = readyState()
   const scheduled = []

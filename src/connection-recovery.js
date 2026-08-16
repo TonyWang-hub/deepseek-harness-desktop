@@ -11,6 +11,7 @@ export function createConnectionRecovery({
   probeHost,
   reloadPage,
   restartHost,
+  getReadyTransition = () => ({ name: 'ready' }),
   schedule = setTimeout,
   cancel = clearTimeout,
   retryDelayMs = 5000,
@@ -58,7 +59,8 @@ export function createConnectionRecovery({
         retryTimer = undefined
       }
       await reloadPage(target)
-      state.transition('ready')
+      const readyTransition = getReadyTransition()
+      state.transition(readyTransition.name, readyTransition.detail)
       return { action: 'page-reloaded' }
     }
     if (!isOnline()) {

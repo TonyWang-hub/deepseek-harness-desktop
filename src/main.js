@@ -108,6 +108,18 @@ let removeMacConnectionRecovery
 let acceptanceOnlineOverride
 let acceptanceForceProbeFailure = false
 let pageLoadCount = 0
+let downloadedUpdateVersion
+
+function currentReadyTransition() {
+  return downloadedUpdateVersion
+    ? { name: 'updating', detail: { version: downloadedUpdateVersion } }
+    : { name: 'ready' }
+}
+
+function transitionDesktopReady() {
+  const next = currentReadyTransition()
+  desktopState.transition(next.name, next.detail)
+}
 
 /** Minimal splash shown until the host's readiness line arrives. */
 const SPLASH = 'data:text/html,' + encodeURIComponent(
@@ -145,7 +157,7 @@ function startHost() {
     sawReady = true
     hostUrl = url
     recoveryPageUrl = ''
-    desktopState.transition('ready')
+    transitionDesktopReady()
     void win?.loadURL(hostUrl)
   }
   const createParser = () => createHostReadinessParser({
@@ -279,7 +291,7 @@ async function createCurrentDiagnosticReport() {
       hostPid: host?.pid,
       hostPort: Number.isInteger(parsedPort) ? parsedPort : undefined,
       dshHomeConfigured: Boolean(process.env.DSH_HOME),
-      updateReady: state.name === 'updating',
+      updateReady: Boolean(downloadedUpdateVersion),
     },
     tools,
   })
@@ -317,6 +329,7 @@ const connectionRecovery = createConnectionRecovery({
   probeHost: probeCurrentHost,
   reloadPage: reloadCurrentPage,
   restartHost: restartUnhealthyHost,
+  getReadyTransition: currentReadyTransition,
 })
 
 function exitAfterHost(code) {
@@ -411,6 +424,7 @@ if (!lock) {
           windowId: win?.id,
           windowUrl: win?.webContents.getURL(),
           desktopState: desktopState.get().name,
+          crashCount: crashRecovery.count(),
           pageLoadCount,
           hostPid: host?.pid,
           hostUrl,
@@ -424,6 +438,13 @@ if (!lock) {
           tray.emit('click')
         },
         diagnostics: () => createCurrentDiagnosticReport(),
+        'save-diagnostics': async () => {
+          const socketPath = process.env.DSH_DESKTOP_ACCEPTANCE_SOCKET
+          if (!socketPath) throw new Error('Acceptance socket is not configured')
+          const filePath = path.join(path.dirname(socketPath), 'diagnostics.json')
+          await saveDiagnosticReport(filePath, await createCurrentDiagnosticReport())
+          return { fileName: 'diagnostics.json' }
+        },
         resume: () => powerMonitor.emit('resume'),
         'offline-resume': () => {
           acceptanceOnlineOverride = false
@@ -457,8 +478,9 @@ if (!lock) {
       isSmoke: SMOKE,
       checkForUpdates: () => autoUpdater.checkForUpdates(),
       notifyDownloaded: updateInfo => {
+        downloadedUpdateVersion = updateInfo.version
         if (desktopState.get().name === 'ready') {
-          desktopState.transition('updating', { version: updateInfo.version })
+          desktopState.transition('updating', { version: downloadedUpdateVersion })
         }
         if (!Notification.isSupported()) return
         new Notification({

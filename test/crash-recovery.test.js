@@ -19,6 +19,8 @@ test('three host exits inside the crash window stop automatic restart', () => {
   assert.deepEqual(recovery.recordExit(1_000), { action: 'restart', delayMs: 500, crashCount: 1 })
   assert.deepEqual(recovery.recordExit(2_000), { action: 'restart', delayMs: 1_000, crashCount: 2 })
   assert.deepEqual(recovery.recordExit(3_000), { action: 'stop', crashCount: 3 })
+  assert.equal(recovery.count(3_000), 3)
+  assert.equal(recovery.count(63_001), 0)
 })
 
 test('manual retry resets the crash circuit and backoff', () => {

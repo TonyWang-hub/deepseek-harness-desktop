@@ -1,8 +1,8 @@
 const ALLOWED_TRANSITIONS = Object.freeze({
-  starting: new Set(['ready', 'recovering', 'circuit-open', 'quitting']),
+  starting: new Set(['ready', 'recovering', 'circuit-open', 'updating', 'quitting']),
   ready: new Set(['disconnected', 'recovering', 'circuit-open', 'updating', 'quitting']),
   disconnected: new Set(['ready', 'recovering', 'circuit-open', 'quitting']),
-  recovering: new Set(['ready', 'disconnected', 'circuit-open', 'quitting']),
+  recovering: new Set(['ready', 'disconnected', 'circuit-open', 'updating', 'quitting']),
   'circuit-open': new Set(['recovering', 'quitting']),
   updating: new Set(['ready', 'disconnected', 'recovering', 'circuit-open', 'quitting']),
   quitting: new Set(),
