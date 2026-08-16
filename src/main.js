@@ -479,6 +479,7 @@ if (!lock) {
       isPackaged: app.isPackaged,
       isSmoke: SMOKE,
       checkForUpdates: () => autoUpdater.checkForUpdates(),
+      nativeUpdateEvents: nativeAutoUpdater,
       notifyDownloaded: updateInfo => {
         downloadedUpdateVersion = updateInfo.version
         if (desktopState.get().name === 'ready') {

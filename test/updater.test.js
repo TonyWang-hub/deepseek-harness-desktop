@@ -4,6 +4,18 @@ import test from 'node:test'
 
 import { quitAfterHostStop, runAutoUpdateCheck } from '../src/updater.js'
 
+function deferred() {
+  let resolve
+  let reject
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+const nextTurn = () => new Promise(resolve => setImmediate(resolve))
+
 test('a packaged app checks for updates once', async () => {
   let calls = 0
   let notified
@@ -21,6 +33,141 @@ test('a packaged app checks for updates once', async () => {
   assert.equal(result, true)
   assert.equal(calls, 1)
   assert.equal(notified, '0.2.0')
+})
+
+test('native macOS readiness gates the downloaded update notification', async () => {
+  const transfer = deferred()
+  const nativeUpdateEvents = new EventEmitter()
+  const notifications = []
+  let fallback
+  let fallbackCancelled = false
+  const checking = runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => {
+      assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 1)
+      assert.equal(nativeUpdateEvents.listenerCount('error'), 1)
+      return { updateInfo: { version: '0.4.3' }, downloadPromise: transfer.promise }
+    },
+    notifyDownloaded: updateInfo => notifications.push(updateInfo.version),
+    reportError: error => assert.fail(error),
+    nativeUpdateEvents,
+    scheduleNativeReadyFallback: handler => {
+      fallback = handler
+      return () => { fallbackCancelled = true }
+    },
+  })
+
+  transfer.resolve()
+  await nextTurn()
+  assert.deepEqual(notifications, [])
+  assert.equal(typeof fallback, 'function')
+
+  nativeUpdateEvents.emit('update-downloaded')
+  assert.equal(await checking, true)
+  assert.deepEqual(notifications, ['0.4.3'])
+  assert.equal(fallbackCancelled, true)
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
+})
+
+test('a cache-fast native readiness event is retained until transfer completion', async () => {
+  const transfer = deferred()
+  const nativeUpdateEvents = new EventEmitter()
+  const notifications = []
+  const checking = runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => {
+      assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 1)
+      nativeUpdateEvents.emit('update-downloaded')
+      return { updateInfo: { version: '0.4.3' }, downloadPromise: transfer.promise }
+    },
+    notifyDownloaded: updateInfo => notifications.push(updateInfo.version),
+    reportError: error => assert.fail(error),
+    nativeUpdateEvents,
+  })
+
+  await nextTurn()
+  assert.deepEqual(notifications, [])
+  transfer.resolve()
+  assert.equal(await checking, true)
+  assert.deepEqual(notifications, ['0.4.3'])
+})
+
+test('a native updater error before readiness never exposes the update', async () => {
+  const nativeUpdateEvents = new EventEmitter()
+  const failure = new Error('native staging failed')
+  const notifications = []
+  let reported
+  const checking = runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => ({
+      updateInfo: { version: '0.4.3' },
+      downloadPromise: Promise.resolve(),
+    }),
+    notifyDownloaded: updateInfo => notifications.push(updateInfo.version),
+    reportError: error => { reported = error },
+    nativeUpdateEvents,
+  })
+
+  await nextTurn()
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 1)
+  nativeUpdateEvents.emit('error', failure)
+  assert.equal(await checking, false)
+  assert.equal(reported, failure)
+  assert.deepEqual(notifications, [])
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
+})
+
+test('native readiness timeout is reported and all observers are removed', async () => {
+  const nativeUpdateEvents = new EventEmitter()
+  let fallback
+  let reported
+  const checking = runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => ({
+      updateInfo: { version: '0.4.3' },
+      downloadPromise: Promise.resolve(),
+    }),
+    notifyDownloaded: () => assert.fail('unexpected update notification'),
+    reportError: error => { reported = error },
+    nativeUpdateEvents,
+    scheduleNativeReadyFallback: handler => {
+      fallback = handler
+      return () => {}
+    },
+  })
+
+  await nextTurn()
+  assert.equal(typeof fallback, 'function')
+  fallback()
+  assert.equal(await checking, false)
+  assert.match(reported.message, /native updater readiness/i)
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
+})
+
+test('a no-update result removes native readiness observers', async () => {
+  const nativeUpdateEvents = new EventEmitter()
+  const result = await runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => {
+      assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 1)
+      return { updateInfo: { version: '0.4.2' } }
+    },
+    notifyDownloaded: () => assert.fail('unexpected update notification'),
+    reportError: error => assert.fail(error),
+    nativeUpdateEvents,
+  })
+
+  assert.equal(result, true)
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
 })
 
 test('development and smoke runs never contact the update service', async () => {
@@ -46,6 +193,7 @@ test('development and smoke runs never contact the update service', async () => 
 
 test('an update-service failure is reported without failing the app', async () => {
   const failure = new Error('offline')
+  const nativeUpdateEvents = new EventEmitter()
   let reported
   const result = await runAutoUpdateCheck({
     isPackaged: true,
@@ -53,14 +201,18 @@ test('an update-service failure is reported without failing the app', async () =
     checkForUpdates: async () => { throw failure },
     notifyDownloaded: () => assert.fail('unexpected update notification'),
     reportError: error => { reported = error },
+    nativeUpdateEvents,
   })
 
   assert.equal(result, false)
   assert.equal(reported, failure)
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
 })
 
 test('a download failure after a successful feed check is handled', async () => {
   const failure = new Error('download failed after feed check')
+  const nativeUpdateEvents = new EventEmitter()
   let reported
   const result = await runAutoUpdateCheck({
     isPackaged: true,
@@ -71,10 +223,13 @@ test('a download failure after a successful feed check is handled', async () => 
     }),
     notifyDownloaded: () => assert.fail('unexpected update notification'),
     reportError: error => { reported = error },
+    nativeUpdateEvents,
   })
 
   assert.equal(result, false)
   assert.equal(reported, failure)
+  assert.equal(nativeUpdateEvents.listenerCount('update-downloaded'), 0)
+  assert.equal(nativeUpdateEvents.listenerCount('error'), 0)
 })
 
 test('deferred macOS install keeps quit blocked until native updater authorization', () => {
@@ -107,6 +262,28 @@ test('deferred macOS install keeps quit blocked until native updater authorizati
   assert.equal(quitAuthorized, true)
   assert.equal(fallbackCancelled, true)
   assert.deepEqual(calls, ['install'])
+})
+
+test('native-ready install authorizes a synchronous before-quit-for-update event', () => {
+  const updateEvents = new EventEmitter()
+  const nativeUpdateEvents = new EventEmitter()
+  const calls = []
+  const action = quitAfterHostStop({
+    updateDownloaded: true,
+    quitAndInstall: () => {
+      calls.push('install')
+      nativeUpdateEvents.emit('before-quit-for-update')
+    },
+    authorizeQuit: () => calls.push('authorize'),
+    quit: () => calls.push('quit'),
+    reportError: error => assert.fail(error),
+    updateEvents,
+    nativeUpdateEvents,
+    scheduleFallback: () => () => calls.push('cancel-fallback'),
+  })
+
+  assert.equal(action, 'install-update')
+  assert.deepEqual(calls, ['install', 'cancel-fallback', 'authorize'])
 })
 
 test('ordinary quit is authorized immediately without a downloaded update', () => {
