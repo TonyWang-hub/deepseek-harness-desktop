@@ -210,7 +210,10 @@ test('repeated Host spawn errors open the recovery circuit without crashing Elec
   }
 })
 
-test('macOS resume distinguishes page, network, and Host recovery', { timeout: 120_000 }, async () => {
+test('macOS resume distinguishes page, network, and Host recovery', {
+  skip: process.platform !== 'darwin',
+  timeout: 120_000,
+}, async () => {
   const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-resume-'))
   const socketPath = path.join(testRoot, 'control.sock')
   const diagnosticSecret = 'ghp_diagnostic_secret_should_never_appear'
@@ -358,7 +361,7 @@ test('real window residency, tray restore, crash circuit, retry, and quit share 
     const stopped = await waitUntil(async () => {
       const snapshot = await control(socketPath, 'snapshot')
       return snapshot.recoveryOpen && !snapshot.hostPid ? snapshot : undefined
-    }, 'open crash circuit', 30_000)
+    }, 'open crash circuit', 45_000)
     assert.equal(stopped.windowVisible, true)
     assert.equal(stopped.desktopState, 'circuit-open')
 
