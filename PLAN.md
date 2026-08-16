@@ -91,7 +91,7 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 ### v0.4 — macOS Reliability
 
-用户选择先深化 macOS，再继续 Windows。该阶段保持单实例、单窗口、官方载荷零修改和标准 `$DSH_HOME`，只增强桌面壳拥有的可靠性边界。
+版本为 `0.4.0`。用户选择先深化 macOS，再继续 Windows；该阶段保持单实例、单窗口、官方载荷零修改和标准 `$DSH_HOME`，只增强桌面壳拥有的可靠性边界。
 
 - **统一状态机**：以 `starting`、`ready`、`disconnected`、`recovering`、`circuit-open`、`updating`、`quitting` 表达唯一桌面状态；Host、窗口、Tray/Dock、恢复页和更新器不得各自维护冲突判断。
 - **睡眠/唤醒与网络恢复**：macOS resume/unlock 后先检查网络与 Host 健康。Host 可达时仅重新加载页面连接；离线时等待网络恢复且不计入崩溃断路器；在线但本地 Host 不可达时才受控重启 Host。
