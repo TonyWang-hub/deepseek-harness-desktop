@@ -8,7 +8,7 @@
 
 这是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的非官方 macOS 桌面外壳。它在 Electron 中运行锁定版本且未修改的官方 `@deepseek-ai/dsh` Web 应用，并保留标准 `$DSH_HOME`，因此桌面应用与 `dsh` 共享 profile、凭据、会话、工具和插件。
 
-> **发布状态——已提供签名并通过公证的 macOS 版本。** 仅从本仓库的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载，选择原生架构，并验证发布校验和与 Apple 签名。本地生成的 unsigned 候选包仍仅用于测试，不得作为正式发布包转发。
+> **发布状态——v0.3.0 是当前最新的已签名、公证 macOS 正式版本。** 仅从本仓库的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载，选择原生架构，并验证发布校验和与 Apple 签名。下文所述 Mac Reliability 已在 `main` 完成，但尚未包含在已签名的 v0.4.0 正式版本中；本地生成的 unsigned 候选包仍仅用于测试，不得作为正式发布包转发。
 
 ## 为什么选择这套实现
 
@@ -19,6 +19,8 @@
 - **首次启动不下载运行时。** Node.js、`pnpm@11.21.0`、官方 production 依赖树、ripgrep 和分架构原生模块均内置于应用。模型和 Web provider 调用仍可能需要网络；“离线载荷”不等于离线模型推理。
 - **常驻桌面工作流。** 关闭窗口后，单一 Host 与会话保持运行；可通过托盘和 macOS Dock 菜单恢复同一窗口或明确退出。
 - **完整管理进程生命周期。** 应用等待 Host 就绪；短时间连续崩溃达到有限重试阈值后停止循环并提供手动恢复页；正常退出时执行 TERM→KILL，并为 Host 提供父进程生存期管道，避免桌面主进程崩溃后留下孤儿进程。
+- **当前 `main` 的唤醒可靠性。** 单一桌面状态机统一管理启动、就绪、离线等待、恢复、断路、更新就绪和退出。macOS resume/解锁时，Host 健康则只重载页面；离线不会计入崩溃次数；本地 Host 不可达时只创建一个受控替代进程。
+- **当前 `main` 的私密诊断。** 托盘和 Dock 菜单中的 **Export Diagnostics… / 导出诊断…** 会生成仅所有者可读（`0600`）的 allowlist JSON 自检报告。它只记录版本、桌面/Host 状态、更新状态和内置运行时检查，不采集会话、Host 日志、环境变量值、凭据、`$DSH_HOME` 或个人路径。
 - **行为与真实产物验收。** CI 通过直接浏览器入口与桌面入口回放包含工具、审批和错误的确定性外部插件会话。arm64 和 x64 构建还会在通过前执行已打包的 Host、官方插件命令、内置 Node 和 pnpm launcher、ripgrep、Sharp、Koffi、`node-pty` 以及真实 PTY。
 
 这会减少上游适配工作，但不会让本外壳变成官方产品，也不保证未来的每个 Harness 版本都无需调整打包代码。
@@ -27,8 +29,10 @@
 
 ```text
 DeepSeek Harness Desktop (Electron main)
+├─ desktop state + wake/network recovery controller
 ├─ Host supervisor and parent-lifetime pipe
 │  └─ bundled Node → host bootstrap → @deepseek-ai/dsh web --port 0
+├─ allowlisted private diagnostics export
 ├─ app-local bin/node and bin/pnpm for Host tools and child processes
 └─ sandboxed BrowserWindow → http://127.0.0.1:<random-port>
                                └─ official Harness Web UI
@@ -44,7 +48,7 @@ Electron 只负责原生窗口、进程监督、打包和更新集成；Harness 
 
 ### 发布可用性
 
-[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)提供已签名、公证并 stapled 的 macOS arm64/x64 产物、校验和与更新元数据。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
+[最新发布 v0.3.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.3.0)提供已签名、公证并 stapled 的 macOS arm64/x64 产物、校验和与更新元数据；它尚不包含 `main` 上未发布的 v0.4 Mac Reliability 改动。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
 
 ### 选择 Apple Silicon 或 Intel
 
@@ -95,6 +99,15 @@ xcrun stapler validate "/Applications/DeepSeek Harness Desktop.app"
 
 只有合并后的 `latest-mac.yml`、arm64 和 x64 ZIP/DMG 及 blockmap 一同发布，并且真实安装版本到新版本的升级验收通过后，该发布才具备更新条件。源码构建和 smoke 模式不检查更新。
 
+## 当前 `main` 的 Mac Reliability
+
+以下改动已完成源码和 unsigned arm64 打包验收，但在签名、公证的 v0.4.0 准备完成前仍属于未发布功能：
+
+- macOS resume 或解锁后，如果回环 Host 健康，则保持精确 PID 与端口，只在同一个 BrowserWindow 中重载页面连接。
+- macOS 报告离线时，桌面端等待并重试，不重启 Host，也不增加三次失败断路器的计数。
+- 设备在线但当前回环 Host 不可达时，桌面端会有意替换该精确 Host，并验证只剩一个替代进程。Generation 检查会阻止延迟 probe 或页面加载覆盖新 Host 状态。
+- 通过托盘或 Dock 菜单的 **Export Diagnostics… / 导出诊断…** 保存 allowlist 自检报告。JSON 在写入内容前即设为仅所有者可读；提交 Issue 前仍应自行检查。报告不会包含会话、原始 Host 输出、环境变量值、凭据或私有路径。
+
 ## 从源码构建与验证
 
 ### 开发
@@ -127,7 +140,9 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 - 每个已安装的 production 包都作为物理文件存在于打包产物中；
 - 干净 `$DSH_HOME` 可以冷启动官方 Host 和 Web UI，并在退出时释放回环端口；
 - 官方插件命令可以找到内置 pnpm，而子进程看到的是内置 Node，而不是 Electron GUI 模式；
-- ripgrep、Sharp、Koffi、`node-pty` 和真实 shell PTY 可以从打包应用中执行；以及
+- ripgrep、Sharp、Koffi、`node-pty` 和真实 shell PTY 可以从打包应用中执行；
+- 健康 resume、离线等待和主动替换不健康 Host 会保持同一窗口、维持正确崩溃计数，并且只留下一个 Host；
+- 实际导出的诊断文件权限为 `0600`，且不包含注入 secret 或私有路径；以及
 - 应用具有所需 Mach-O 架构，正常退出或父进程死亡后不会留下 Host 进程。
 
 发布验收证据和跨平台路线图见 [PLAN.md](PLAN.md)。
@@ -145,7 +160,7 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 
 | 项目 | 已发布桌面产物 | 载荷与数据 | 更新 | 签名与公证证据 |
 | --- | --- | --- | --- | --- |
-| 本项目 | [v0.2.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.2.0)：macOS arm64/x64 DMG 与 ZIP、更新元数据和校验和 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时和 production 依赖树 | 公开双架构 Release feed 与 Electron updater | Release workflow 和下载后的 DMG 均已通过 `codesign`、Gatekeeper 与 stapled 公证 ticket 验证 |
+| 本项目 | [v0.3.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.3.0)：macOS arm64/x64 DMG 与 ZIP、更新元数据和校验和 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时和 production 依赖树 | 公开双架构 Release feed 与 Electron updater | Release workflow 和下载后的 DMG 均已通过 `codesign`、Gatekeeper 与 stapled 公证 ticket 验证 |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0)：macOS arm64 和 Windows x64 | 完整 Harness 源码树内的 Electron 桌面应用；打包 workspace 依赖；托盘集成 | 当前[桌面 manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) 未声明 updater | v0.1.0 未记录产物信任状态；当前源码包含独立的 [macOS 发布预检](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7)：macOS arm64/x64 和 Windows x64，含更新元数据 | 锁定 rc.6 包，并使用有文档记录的 [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) 增加桌面功能；应用专用 Harness 数据目录 | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) 检查已安装的 macOS 和 Windows 构建 | [发布工作流](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) 在 macOS 上验证 `codesign`、Gatekeeper 和 `stapler`；其 [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) 关闭了 Windows 更新代码签名验证 |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4)：macOS arm64/x64、Windows x64 和 Linux x64 | Electron、锁定的官方 rc.6 UI、标准 Harness 数据和托盘集成 | 其 [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) 说明尚未集成自动更新 | 同一 README 说明 macOS 未通过 Apple 公证，Windows 未进行商业代码签名 |

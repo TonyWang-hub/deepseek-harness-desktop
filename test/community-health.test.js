@@ -42,9 +42,14 @@ test('community guidance is bilingual and routes security reports privately', as
     assert.match(document, /\[Security\]\(SECURITY\.md\)/)
     assert.match(document, /\/discussions/)
     assert.match(document, /releases\/latest/)
+    assert.match(document, /v0\.3\.0/)
+    assert.match(document, /Export Diagnostics|导出诊断/)
+    assert.match(document, /resume|唤醒/)
     assert.doesNotMatch(document, /nothing to download|没有.*下载|尚未发布.*二进制|no public binary|无公开二进制|feed pending|feed 待提供/i)
   }
-  assert.match(plan, /releases\/tag\/v0\.2\.0/)
+  assert.match(support, /Export Diagnostics/)
+  assert.match(support, /导出诊断/)
+  assert.match(plan, /releases\/tag\/v0\.3\.0/)
   assert.doesNotMatch(plan, /尚需安全导出|签名、公证与首个 GitHub Release.*等待/)
 })
 
@@ -61,6 +66,7 @@ test('issue forms and the pull request template collect actionable evidence', as
 
   assert.deepEqual(bug.labels, ['bug', 'status/needs-triage'])
   assert.ok(bug.body.some(item => item.id === 'reproduction' && item.validations?.required))
+  assert.ok(bug.body.some(item => item.id === 'diagnostics'))
   assert.ok(bug.body.some(item => item.id === 'logs'))
   assert.deepEqual(feature.labels, ['enhancement', 'status/needs-triage'])
   assert.ok(feature.body.some(item => item.id === 'problem' && item.validations?.required))

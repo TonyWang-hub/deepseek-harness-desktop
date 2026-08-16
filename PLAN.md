@@ -85,7 +85,8 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 
 - 完整源码测试 `66/66` 通过；真实 Electron 验收关闭窗口后确认同一 Host/端口继续可用、由实际 Tray click listener 恢复同一 `BrowserWindow`，三次真实 Host 崩溃进入停止态，手动 Retry 恢复，明确 Quit 后精确 Host PID 与端口均消失。spawn `error`/`exit` 只计一次失败。
 - `npm run test:fixture-parity` `1/1` 通过：两个隔离 `$DSH_HOME` 分别经官方直连浏览器入口和桌面监督入口加载真实 Host；严格轨迹保留完整工具参数/结果/错误、call ID、审批、step、compaction、用户/助手消息和最终回复，对未知事件 fail closed，并结构化归一化 Windows JSON 路径。
-- `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `6/6` 通过，新增非 smoke 托盘驻留、同一窗口恢复和精确 Host 清理验收；正式 Release workflow 会在原生 arm64/x64 runner 上从同一 tag 重新执行签名、公证、staple、产物与更新元数据验收。
+- `npm run smoke` 通过并释放随机端口；arm64 unsigned `0.3.0` App/DMG packaged acceptance `6/6` 通过，新增非 smoke 托盘驻留、同一窗口恢复和精确 Host 清理验收。
+- [`v0.3.0`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.3.0) 已由受保护 Release workflow 在原生 arm64/x64 runner 完成 fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance 与精确十项资产发布；正式 tag 指向 `aae80007938fca48432951ce8f57c6c45a104284`。
 - Linux CI 已加入独立 fixture parity 步骤，使用同一固定插件与工作区，不需要模型凭据，也不修改官方载荷。
 
 ### v0.4 — macOS Reliability
