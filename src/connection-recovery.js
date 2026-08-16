@@ -6,6 +6,8 @@ export function createConnectionRecovery({
   state,
   isOnline,
   hasHostTarget,
+  getHostTarget,
+  isHostTargetCurrent,
   probeHost,
   reloadPage,
   restartHost,
@@ -34,21 +36,28 @@ export function createConnectionRecovery({
       scheduleNetworkRetry()
       return { action: 'wait-for-network' }
     }
-    if (!hasHostTarget()) return { action: 'host-not-ready' }
+    const target = getHostTarget
+      ? getHostTarget()
+      : hasHostTarget?.() ? true : undefined
+    if (target === undefined) return { action: 'host-not-ready' }
 
     state.transition('recovering', { reason })
     let reachable = false
     try {
-      reachable = await probeHost()
+      reachable = await probeHost(target)
     } catch {
       reachable = false
     }
+    const targetIsCurrent = isHostTargetCurrent
+      ? isHostTargetCurrent(target)
+      : Boolean(hasHostTarget?.())
+    if (!targetIsCurrent) return { action: 'stale-host' }
     if (reachable) {
       if (retryTimer !== undefined) {
         cancel(retryTimer)
         retryTimer = undefined
       }
-      await reloadPage()
+      await reloadPage(target)
       state.transition('ready')
       return { action: 'page-reloaded' }
     }
@@ -58,7 +67,7 @@ export function createConnectionRecovery({
       return { action: 'wait-for-network' }
     }
 
-    await restartHost()
+    await restartHost(target)
     return { action: 'host-restarted' }
   }
 

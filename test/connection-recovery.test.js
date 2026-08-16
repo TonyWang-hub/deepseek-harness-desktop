@@ -110,6 +110,31 @@ test('an online but unreachable Host is restarted exactly once', async () => {
   assert.equal(restarts, 1)
 })
 
+test('a stale probe cannot reload or restart a replacement Host', async () => {
+  const state = readyState()
+  let current = 'host-a'
+  let reloads = 0
+  let restarts = 0
+  const recovery = createConnectionRecovery({
+    state,
+    isOnline: () => true,
+    getHostTarget: () => current,
+    isHostTargetCurrent: target => target === current,
+    probeHost: async () => {
+      current = 'host-b'
+      state.transition('ready')
+      return false
+    },
+    reloadPage: async () => { reloads += 1 },
+    restartHost: async () => { restarts += 1 },
+  })
+
+  assert.deepEqual(await recovery.recover('resume'), { action: 'stale-host' })
+  assert.equal(state.get().name, 'ready')
+  assert.equal(reloads, 0)
+  assert.equal(restarts, 0)
+})
+
 test('recovery leaves crash-stop and startup ownership unchanged', async () => {
   const circuit = readyState()
   circuit.transition('circuit-open')

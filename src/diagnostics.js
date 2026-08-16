@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { access as fsAccess, chmod, writeFile } from 'node:fs/promises'
+import { access as fsAccess, open as fsOpen } from 'node:fs/promises'
 
 const TOOL_NAME = /^[a-z0-9][a-z0-9-]*$/
 const TOOL_STATUSES = new Set(['ok', 'missing', 'not-readable', 'not-executable', 'unavailable'])
@@ -75,10 +75,14 @@ export async function checkRuntimeTools(tools, { access } = {}) {
 
 /** Write a deterministic, owner-readable diagnostic JSON file. */
 export async function saveDiagnosticReport(filePath, report, {
-  writeFile: write = writeFile,
-  chmod: setMode = chmod,
+  open = fsOpen,
 } = {}) {
   const content = `${JSON.stringify(report, null, 2)}\n`
-  await write(filePath, content, { encoding: 'utf8', mode: 0o600 })
-  await setMode(filePath, 0o600)
+  const handle = await open(filePath, 'w', 0o600)
+  try {
+    await handle.chmod(0o600)
+    await handle.writeFile(content, { encoding: 'utf8' })
+  } finally {
+    await handle.close()
+  }
 }

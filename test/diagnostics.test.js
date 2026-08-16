@@ -107,16 +107,24 @@ test('runtime checks never return inspected filesystem paths or raw errors', asy
   assert.equal(JSON.stringify(tools).includes('/private/'), false)
 })
 
-test('saved diagnostics are formatted and forced to owner-only permissions', async () => {
+test('saved diagnostics become owner-only before any private content is written', async () => {
   const calls = []
   const report = { schemaVersion: 1 }
   await saveDiagnosticReport('/tmp/diagnostics.json', report, {
-    writeFile: async (filePath, content, options) => calls.push(['write', filePath, content, options]),
-    chmod: async (filePath, mode) => calls.push(['chmod', filePath, mode]),
+    open: async (filePath, flags, mode) => {
+      calls.push(['open', filePath, flags, mode])
+      return {
+        chmod: async value => calls.push(['chmod', value]),
+        writeFile: async (content, options) => calls.push(['write', content, options]),
+        close: async () => calls.push(['close']),
+      }
+    },
   })
 
   assert.deepEqual(calls, [
-    ['write', '/tmp/diagnostics.json', '{\n  "schemaVersion": 1\n}\n', { encoding: 'utf8', mode: 0o600 }],
-    ['chmod', '/tmp/diagnostics.json', 0o600],
+    ['open', '/tmp/diagnostics.json', 'w', 0o600],
+    ['chmod', 0o600],
+    ['write', '{\n  "schemaVersion": 1\n}\n', { encoding: 'utf8' }],
+    ['close'],
   ])
 })

@@ -55,6 +55,7 @@ import {
 } from './desktop-shell.js'
 import { hostArguments } from './host-command.js'
 import { observeHostFailure } from './host-failure.js'
+import { createHostReadinessParser } from './host-readiness.js'
 import { createHostEnvironment } from './host-environment.js'
 import { terminateChild } from './host-lifecycle.js'
 import { runAutoUpdateCheck } from './updater.js'
@@ -118,6 +119,7 @@ const SPLASH = 'data:text/html,' + encodeURIComponent(
  * Crash-restarts with capped exponential backoff until the recovery circuit opens.
  */
 function startHost() {
+  if (quitting || host) return
   const nodeOverride = process.env.DSH_DESKTOP_NODE
   const cmd = nodeOverride || process.execPath
   const args = hostArguments({
@@ -132,28 +134,30 @@ function startHost() {
     nodeOverride,
   })
   env.HARNESS_DESKTOP_PARENT_FD = '3'
-  host = spawn(cmd, args, {
+  const startedHost = spawn(cmd, args, {
     env,
     stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
   })
+  host = startedHost
   let sawReady = false
-
-  const onLine = (/** @type {Buffer} */ chunk) => {
-    const text = chunk.toString()
-    if (!SMOKE) process.stdout.write(text)
-    const m = READY_LINE.exec(text)
-    if (m && !sawReady) {
-      sawReady = true
-      hostUrl = m[1]
-      recoveryPageUrl = ''
-      desktopState.transition('ready')
-      void win?.loadURL(hostUrl)
-    }
+  const onReady = url => {
+    if (sawReady || quitting || host !== startedHost) return
+    sawReady = true
+    hostUrl = url
+    recoveryPageUrl = ''
+    desktopState.transition('ready')
+    void win?.loadURL(hostUrl)
   }
-  host.stdout?.on('data', onLine)
-  host.stderr?.on('data', onLine)
+  const createParser = () => createHostReadinessParser({
+    pattern: READY_LINE,
+    writeOutput: text => { if (!SMOKE) process.stdout.write(text) },
+    onReady,
+  })
+  const stdoutParser = createParser()
+  const stderrParser = createParser()
+  startedHost.stdout?.on('data', chunk => stdoutParser.push(chunk))
+  startedHost.stderr?.on('data', chunk => stderrParser.push(chunk))
 
-  const startedHost = host
   observeHostFailure(startedHost, failure => {
     if (host !== startedHost) return
     host = undefined
@@ -215,22 +219,29 @@ function stopHost() {
   return hostStopPromise
 }
 
-async function probeCurrentHost() {
+function currentHostTarget() {
+  return host?.pid && hostUrl ? { child: host, url: hostUrl } : undefined
+}
+
+function isCurrentHostTarget(target) {
+  return host === target.child && hostUrl === target.url
+}
+
+async function probeCurrentHost(target) {
   if (acceptanceForceProbeFailure) {
     acceptanceForceProbeFailure = false
     return false
   }
-  if (!hostUrl) return false
-  const response = await electronNet.fetch(hostUrl, { signal: AbortSignal.timeout(3000) })
+  const response = await electronNet.fetch(target.url, { signal: AbortSignal.timeout(3000) })
   return response.ok
 }
 
-async function reloadCurrentPage() {
-  if (win && hostUrl) await win.loadURL(hostUrl)
+async function reloadCurrentPage(target) {
+  if (win && isCurrentHostTarget(target)) await win.loadURL(target.url)
 }
 
-async function restartUnhealthyHost() {
-  if (quitting || desktopState.get().name === 'circuit-open') return
+async function restartUnhealthyHost(target) {
+  if (quitting || desktopState.get().name === 'circuit-open' || !isCurrentHostTarget(target)) return
   hostUrl = ''
   recoveryPageUrl = ''
   await stopHost()
@@ -301,7 +312,8 @@ async function exportCurrentDiagnostics() {
 const connectionRecovery = createConnectionRecovery({
   state: desktopState,
   isOnline: () => acceptanceOnlineOverride ?? electronNet.isOnline(),
-  hasHostTarget: () => Boolean(host?.pid && hostUrl),
+  getHostTarget: currentHostTarget,
+  isHostTargetCurrent: isCurrentHostTarget,
   probeHost: probeCurrentHost,
   reloadPage: reloadCurrentPage,
   restartHost: restartUnhealthyHost,
