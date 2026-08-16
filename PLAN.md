@@ -103,7 +103,7 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - 单一状态机已接入 Host 启动、崩溃断路器、手动恢复、网络断开、更新就绪和退出；更新下载状态可跨 wake 恢复，Host readiness 支持跨输出 chunk 并拒绝旧进程异步结果。
 - macOS resume/unlock 分层恢复已通过真实 Electron 与 packaged 验收：健康 Host 只重载同一窗口，离线保持精确 PID/URL 且 crash count 为 0，不健康 Host 只产生一个替代 PID，旧 PID 与端口被回收。
 - Tray/Dock 已加入诊断导出；报告只含 allowlist 字段，真实导出文件在写入内容前即设为 `0600`，源码与 packaged 对抗测试均证明不包含 `$DSH_HOME`、socket 路径或注入 secret。
-- 最终本地证据：源码 `88 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke 通过、unsigned arm64 packaged acceptance `6/6`；独立复审结论 `READY`。本记录不代表已签名发布 v0.4.0，版本号、正式双架构签名/公证与 Release 仍属于后续发布准备。
+- 最终证据：macOS 源码 `89 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke 通过、unsigned arm64 packaged acceptance `6/6`；Linux/Windows CI 在 [run 31926953834](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31926953834) 全绿，独立复审结论 `READY`。本记录不代表已签名发布 v0.4.0，版本号、正式双架构签名/公证与 Release 仍属于后续发布准备。
 
 ### v0.5 — Windows x64
 
