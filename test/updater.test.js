@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import test from 'node:test'
 
 import { quitAfterHostStop, runAutoUpdateCheck } from '../src/updater.js'
@@ -76,44 +77,101 @@ test('a download failure after a successful feed check is handled', async () => 
   assert.equal(reported, failure)
 })
 
-test('quitting after an update download explicitly installs it', () => {
+test('deferred macOS install keeps quit blocked until native updater authorization', () => {
+  const updateEvents = new EventEmitter()
+  const nativeUpdateEvents = new EventEmitter()
   const calls = []
+  let quitAuthorized = false
+  let fallback
+  let fallbackCancelled = false
   const action = quitAfterHostStop({
     updateDownloaded: true,
     quitAndInstall: () => calls.push('install'),
+    authorizeQuit: () => { quitAuthorized = true },
     quit: () => calls.push('quit'),
     reportError: error => assert.fail(error),
+    updateEvents,
+    nativeUpdateEvents,
+    scheduleFallback: handler => {
+      fallback = handler
+      return () => { fallbackCancelled = true }
+    },
   })
 
   assert.equal(action, 'install-update')
   assert.deepEqual(calls, ['install'])
+  assert.equal(quitAuthorized, false)
+  assert.equal(typeof fallback, 'function')
+
+  nativeUpdateEvents.emit('before-quit-for-update')
+  assert.equal(quitAuthorized, true)
+  assert.equal(fallbackCancelled, true)
+  assert.deepEqual(calls, ['install'])
 })
 
-test('ordinary quit remains unchanged without a downloaded update', () => {
+test('ordinary quit is authorized immediately without a downloaded update', () => {
   const calls = []
   const action = quitAfterHostStop({
     updateDownloaded: false,
     quitAndInstall: () => calls.push('install'),
+    authorizeQuit: () => calls.push('authorize'),
     quit: () => calls.push('quit'),
     reportError: error => assert.fail(error),
   })
 
   assert.equal(action, 'quit')
-  assert.deepEqual(calls, ['quit'])
+  assert.deepEqual(calls, ['authorize', 'quit'])
 })
 
-test('a synchronous installer failure is reported before safe quit', () => {
-  const failure = new Error('installer unavailable')
+test('an asynchronous installer error is reported before authorized safe quit', () => {
+  const failure = new Error('Squirrel staging failed')
+  const updateEvents = new EventEmitter()
+  const nativeUpdateEvents = new EventEmitter()
   const calls = []
   let reported
+  let fallback
   const action = quitAfterHostStop({
     updateDownloaded: true,
-    quitAndInstall: () => { throw failure },
+    quitAndInstall: () => calls.push('install'),
+    authorizeQuit: () => calls.push('authorize'),
     quit: () => calls.push('quit'),
     reportError: error => { reported = error },
+    updateEvents,
+    nativeUpdateEvents,
+    scheduleFallback: handler => {
+      fallback = handler
+      return () => calls.push('cancel-fallback')
+    },
   })
 
-  assert.equal(action, 'quit')
+  assert.equal(action, 'install-update')
+  assert.equal(typeof fallback, 'function')
+  updateEvents.emit('error', failure)
   assert.equal(reported, failure)
-  assert.deepEqual(calls, ['quit'])
+  assert.deepEqual(calls, ['install', 'cancel-fallback', 'authorize', 'quit'])
+})
+
+test('an installer readiness timeout reports failure and safely quits', () => {
+  const updateEvents = new EventEmitter()
+  const nativeUpdateEvents = new EventEmitter()
+  const calls = []
+  let fallback
+  let reported
+  quitAfterHostStop({
+    updateDownloaded: true,
+    quitAndInstall: () => calls.push('install'),
+    authorizeQuit: () => calls.push('authorize'),
+    quit: () => calls.push('quit'),
+    reportError: error => { reported = error },
+    updateEvents,
+    nativeUpdateEvents,
+    scheduleFallback: handler => {
+      fallback = handler
+      return () => calls.push('cancel-fallback')
+    },
+  })
+
+  fallback()
+  assert.match(reported.message, /timed out/i)
+  assert.deepEqual(calls, ['install', 'cancel-fallback', 'authorize', 'quit'])
 })

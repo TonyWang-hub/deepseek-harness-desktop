@@ -14,6 +14,7 @@
  */
 import {
   app,
+  autoUpdater as nativeAutoUpdater,
   BrowserWindow,
   dialog,
   Menu,
@@ -509,12 +510,14 @@ if (!lock) {
     quitPromise = stopHost()
       .catch(error => console.error('Host shutdown failed:', error))
       .then(() => {
-        quitReady = true
         quitAfterHostStop({
           updateDownloaded: Boolean(downloadedUpdateVersion),
           quitAndInstall: () => autoUpdater.quitAndInstall(),
+          authorizeQuit: () => { quitReady = true },
           quit: () => app.quit(),
           reportError: reportUpdateError,
+          updateEvents: autoUpdater,
+          nativeUpdateEvents: nativeAutoUpdater,
         })
       })
   })
