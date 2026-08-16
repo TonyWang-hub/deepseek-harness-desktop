@@ -161,6 +161,8 @@ v0.4.2 的真实失败已经把下载、架构选择、双 digest、electron-upd
 
 v0.4.3 发布后立即准备只改版本、测试契约和说明的 v0.4.4；不得加入产品功能、依赖或官方 DSH 载荷变化。完成全部本地门、候选 CI 与双原生签名公证发布后，使用 `acceptance/public-update.js` 在标准 `/Applications` 路径执行正式签名 v0.4.3→公开 v0.4.4：必须证明公开双 digest cache 命中、原生 `update-downloaded` 后才进入 `updating`、明确 Quit 收到 `before-quit-for-update`、bundle 原位替换并自动重启 v0.4.4 Host ready、三项信任门通过且最终无应用/Host/端口残留。
 
+候选本地证据：`v0.4.3..8225aee` 只涉及 package/lock 版本、release/community 测试契约与双语说明，lock 除两个根版本字段外等价，产品源码、build/workflow、acceptance、依赖和官方 DSH 载荷均未变化。完整源码 `109 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke、unsigned arm64 packaged acceptance `6/6`、四项候选容器与无残留检查通过；独立复审确认九个允许文件、proof-in-progress 文案和手动 DMG 指引一致，无 Critical/Important 问题，结论 `READY`。
+
 证明期间继续完整备份并恢复用户 v0.2.0、electron-updater/Squirrel cache，绝不修改 `$DSH_HOME`。成功后才移除自动安装警告并恢复 v0.5；失败则保持 v0.4.3/v0.4.4 tag 与资产不可变，立即发布手动安装警告并使用新版本号（最早 v0.4.5）继续修复。
 
 ### v0.5 — Windows x64
