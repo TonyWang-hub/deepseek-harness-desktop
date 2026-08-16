@@ -128,6 +128,23 @@ test('an online but unreachable Host is restarted exactly once', async () => {
   assert.equal(restarts, 1)
 })
 
+test('a Host invalidated during page reload cannot be marked ready', async () => {
+  const state = readyState()
+  let current = 'host-a'
+  const recovery = createConnectionRecovery({
+    state,
+    isOnline: () => true,
+    getHostTarget: () => current,
+    isHostTargetCurrent: target => target === current,
+    probeHost: async () => true,
+    reloadPage: async () => { current = 'host-b' },
+    restartHost: async () => {},
+  })
+
+  assert.deepEqual(await recovery.recover('resume'), { action: 'stale-host' })
+  assert.equal(state.get().name, 'recovering')
+})
+
 test('a stale probe cannot reload or restart a replacement Host', async () => {
   const state = readyState()
   let current = 'host-a'

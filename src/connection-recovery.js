@@ -59,6 +59,7 @@ export function createConnectionRecovery({
         retryTimer = undefined
       }
       await reloadPage(target)
+      if (isHostTargetCurrent && !isHostTargetCurrent(target)) return { action: 'stale-host' }
       const readyTransition = getReadyTransition()
       state.transition(readyTransition.name, readyTransition.detail)
       return { action: 'page-reloaded' }
