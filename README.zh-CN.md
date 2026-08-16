@@ -8,9 +8,9 @@
 
 这是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的非官方 macOS 桌面外壳。它在 Electron 中运行锁定版本且未修改的官方 `@deepseek-ai/dsh` Web 应用，并保留标准 `$DSH_HOME`，因此桌面应用与 `dsh` 共享 profile、凭据、会话、工具和插件。
 
-> **发布状态——v0.4.1 是当前最新的已签名、公证 macOS 正式版本。** 仅从本仓库的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载，选择原生架构，并验证发布校验和与 Apple 签名。本地生成的 unsigned 候选包仍仅用于测试，不得作为正式发布包转发。
+> **发布状态——v0.4.2 是当前最新的已签名、公证 macOS 正式版本。** 仅从本仓库的[最新发布](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest)下载，选择原生架构，并验证发布校验和与 Apple 签名。本地生成的 unsigned 候选包仍仅用于测试，不得作为正式发布包转发。
 >
-> **升级提示：** 发布后的真实测试发现，v0.3.x/v0.4.0 可以发现、校验并暂存更新，但明确退出后不会完成应用替换。请手动安装一次匹配架构的 v0.4.1 DMG。v0.4.1 已加入明确的 `quitAndInstall` 路径；由于缺陷存在于旧应用，从 v0.4.0 或更早版本升级的用户仍需执行这一次手动 DMG 安装。
+> **升级警告——严格的公开升级证明失败：** 正式签名 v0.4.1 成功发现 v0.4.2、接受已校验的公开 ZIP 并传输到原生 ShipIt cache，但五分钟内没有收到原生安装授权；安全回退后仍安装 v0.4.1。请勿依赖 v0.4.1 或更早版本自动安装，务必手动安装匹配架构的 v0.4.2 DMG。修复将使用新版本号（最早 v0.4.3），不会移动或重建 v0.4.2 tag 与资产。
 
 ## 为什么选择这套实现
 
@@ -50,7 +50,7 @@ Electron 只负责原生窗口、进程监督、打包和更新集成；Harness 
 
 ### 发布可用性
 
-[最新发布 v0.4.1](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1)提供已签名、公证并 stapled 的 macOS arm64/x64 产物、校验和与更新元数据。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
+[最新发布 v0.4.2](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.2)提供已签名、公证并 stapled 的 macOS arm64/x64 产物、校验和与更新元数据。它的公开原位升级证明失败，因此请使用匹配架构的 DMG，不要依赖自动替换。名称相近的其他仓库会发布独立社区构建，它们的代码、数据路径、更新策略和签名状态并不相同。
 
 ### 选择 Apple Silicon 或 Intel
 
@@ -99,7 +99,7 @@ xcrun stapler validate "/Applications/DeepSeek Harness Desktop.app"
 
 公开 GitHub Release feed 提供双架构更新元数据。已打包的 production 应用会在启动后执行一次非阻塞检查。如果存在更新，应用会等待下载完成，然后通知用户在应用退出时安装；网络或 feed 错误会被报告，但不会阻塞 Harness 启动。
 
-v0.4.1 会在精确清理 Host 后明确调用 updater 安装路径，在 Electron 授权原生 Squirrel 更新前继续拦截普通退出，并在错误或有界超时时报告后安全退出。由于 v0.4.0 及更早版本不包含这段代码，从这些版本升级时请手动安装一次 v0.4.1 DMG。源码构建和 smoke 模式不检查更新。
+v0.4.1 引入了精确清理 Host 后明确调用 updater 的安装路径，并在等待 Electron 原生 Squirrel 授权时继续拦截普通退出。但正式签名 v0.4.1→公开 v0.4.2 的真实证明仍在 Squirrel 接受并传输已校验更新后超时：`before-quit-for-update` 没有到达，安全回退退出后仍安装 v0.4.1。从 v0.4.1 或更早版本升级时请手动安装 v0.4.2 DMG；当前不声称自动安装可用。源码构建和 smoke 模式不检查更新。
 
 只有合并后的 `latest-mac.yml`、arm64 和 x64 ZIP/DMG 及 blockmap 一同通过精确资产、校验和、签名、公证、staple、packaged acceptance 与挂载 DMG 门后，Release feed 才会发布。
 
@@ -164,7 +164,7 @@ HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:x64
 
 | 项目 | 已发布桌面产物 | 载荷与数据 | 更新 | 签名与公证证据 |
 | --- | --- | --- | --- | --- |
-| 本项目 | [v0.4.1](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1)：macOS arm64/x64 DMG 与 ZIP、更新元数据和校验和 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时；唤醒恢复与私密诊断 | 公开双架构 Release feed；v0.4.1 起明确走原生退出安装路径 | Release workflow 验证 `codesign`、Gatekeeper、stapled 公证 ticket、packaged acceptance 与挂载 DMG |
+| 本项目 | [v0.4.2](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.2)：macOS arm64/x64 DMG 与 ZIP、更新元数据和校验和 | 锁定且未修改的 npm 载荷；标准 `$DSH_HOME`；内置运行时；唤醒恢复与私密诊断 | 公开双架构 feed；v0.4.1→v0.4.2 自动安装证明失败，必须手动安装 DMG | Release workflow 验证 `codesign`、Gatekeeper、stapled 公证 ticket、packaged acceptance 与挂载 DMG |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0)：macOS arm64 和 Windows x64 | 完整 Harness 源码树内的 Electron 桌面应用；打包 workspace 依赖；托盘集成 | 当前[桌面 manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) 未声明 updater | v0.1.0 未记录产物信任状态；当前源码包含独立的 [macOS 发布预检](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7)：macOS arm64/x64 和 Windows x64，含更新元数据 | 锁定 rc.6 包，并使用有文档记录的 [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) 增加桌面功能；应用专用 Harness 数据目录 | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) 检查已安装的 macOS 和 Windows 构建 | [发布工作流](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) 在 macOS 上验证 `codesign`、Gatekeeper 和 `stapler`；其 [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) 关闭了 Windows 更新代码签名验证 |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4)：macOS arm64/x64、Windows x64 和 Linux x64 | Electron、锁定的官方 rc.6 UI、标准 Harness 数据和托盘集成 | 其 [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) 说明尚未集成自动更新 | 同一 README 说明 macOS 未通过 Apple 公证，Windows 未进行商业代码签名 |

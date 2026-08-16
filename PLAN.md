@@ -125,13 +125,21 @@ v0.4.2 是进入 Windows 前的最小证明版本：只允许修改桌面版本�
 
 执行顺序：
 
-1. 以 TDD 新增 `acceptance/public-update.js` 与 `test/public-update.test.js`。CLI 必须显式接收标准 `/Applications/DeepSeek Harness Desktop.app`、来源/目标版本、已下载目标 ZIP、公开 SHA-256 和隔离 runtime 根；先验证来源版本与 ZIP，再生成 electron-updater 所需 SHA-512 cache，启动来源应用并通过私有 acceptance socket 等待 Host ready 和 `updating`，明确 Quit 后等待 bundle 原位变为目标版本与自动重启 Host ready，最后再次 Quit 并证明 PID/端口释放。任何参数、校验、状态或超时不满足都 fail closed。
+1. 以 TDD 新增 `acceptance/public-update.js` 与 `test/public-update.test.js`。CLI 必须显式接收标准 `/Applications/DeepSeek Harness Desktop.app`、来源/目标版本、已下载目标 ZIP、公开 SHA-256、`latest-mac.yml` SHA-512 和隔离 runtime 根；复制后同时验证两个 digest，并证明 electron-updater 接受了该 cache，启动来源应用并通过有界私有 acceptance socket 等待 Host ready 和 `updating`，明确 Quit 后等待 bundle 原位变为目标版本与自动重启 Host ready，最后校验签名/Gatekeeper/stapler、再次 Quit 并证明已识别 PID/端口释放。任何参数、校验、状态或超时不满足都 fail closed。
 2. 先提交验收工具，再以失败优先测试把 package/lock/release contract 更新为 `0.4.2`；完整运行 `npm test`、fixture parity、source smoke、unsigned arm64 packaged acceptance、diff check 与独立复审。只有候选 CI 全绿后才推送不可移动的 `v0.4.2` annotated tag。
 3. 受保护 Release workflow 必须继续在原生 arm64/x64 runner 完成源码、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG、无残留检查和精确十项资产原子发布；发布后交叉核验九条 checksum、GitHub asset digest 与四个 manifest payload。
 4. 真实升级只能在公开 v0.4.2 feed 存在后执行。测试前临时备份用户当前 `/Applications` 应用和 bundle-id Squirrel cache，保持用户 `$DSH_HOME` 完全不变；在标准路径安装正式 v0.4.1，并使用隔离 `HOME`、Electron user-data 与 DSH data 运行验收。验收后无论成功失败都终止测试进程、删除测试 cache/下载，并恢复原应用与 cache。
 5. 成功条件：正式 v0.4.1 从公开 feed 识别并校验 v0.4.2，走 `before-quit-for-update` 授权后原位替换，自动重启为 v0.4.2 且 Host ready；更新后的应用通过 `codesign --verify --deep --strict`、Gatekeeper 与 `stapler validate`，最终退出后无 Host、端口或测试应用残留。成功后才在 README/SUPPORT/本 PLAN 声明真实公开升级已证明并进入 v0.5。
 
 失败策略：v0.4.2 一旦公开绝不移动或重建 tag/Release。真实升级任一步失败时，立即在 v0.4.2 Release Notes 与 README 加入明确警告，不得声称 updater 已证明；修复必须使用新版本号（最早 v0.4.3）。
+
+#### 2026-08-16 发布与证明结果
+
+- 开发门：完整源码 `102 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke、unsigned arm64 packaged acceptance `6/6` 与无残留检查均通过；独立复审两轮阻断并修复了进程归属、双 digest/cache 使用证明、socket 超时、安装后信任校验和 Host identity cleanup，最终结论 `READY`。候选 [CI run 31940896458](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31940896458) 全绿后才创建 tag。
+- [`v0.4.2`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.2) annotated tag 指向 `814ab7a06fdbd7df25f717ece53f8cb94ed3d4e0`。受保护的 [Release run 31940989780](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31940989780) 在原生 arm64/x64 runner 分别用 10m23s/15m48s 完成源码、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG 与无残留检查并原子发布。
+- v0.4.2 为非 draft、非 prerelease 且 latest；精确十项资产与九条 `SHA256SUMS.txt` 均和 GitHub asset digest 一致，合并 `latest-mac.yml` 为 `0.4.2` 且仅有四个双架构 DMG/ZIP payload。
+- **真实正式 v0.4.1→公开 v0.4.2 原位升级证明失败。** 来源应用成功发现 v0.4.2、选择 arm64 ZIP、同时匹配公开 SHA-256/SHA-512、接受预置 cache、经本地 proxy 完整写入原生 ShipIt cache 并进入 `updating`；明确 Quit 后五分钟内仍未收到 `before-quit-for-update`，安全回退报告 `Timed out waiting for the native updater to authorize quit`，bundle 保持 v0.4.1。Release Notes 与双语 README 已立即加入手动安装 v0.4.2 DMG 警告；tag/资产保持不可变，修复进入最早 v0.4.3，暂不进入 v0.5。
+- 证明前临时备份的用户 v0.2.0 应用与全部 updater/Squirrel cache 已恢复，用户 `$DSH_HOME` 从未修改；测试应用、Host 和挂载点均无残留。首次前台执行因十分钟外部执行上限被终止，检查并手动完整恢复后才以托管后台作业重跑；最终失败来自应用内五分钟原生授权超时，而非下载、hash、cache、网络发现或验收工具超时。
 
 ### v0.5 — Windows x64
 

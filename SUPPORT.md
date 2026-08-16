@@ -12,7 +12,7 @@
 
 Include the desktop version, macOS version, CPU architecture, and reproduction steps. On v0.4.0 or later, use the tray or Dock menu's **Export Diagnostics…** action and review the JSON before attaching it; do not append raw Host output, environment dumps, or session content. Never post API keys, signing material, credentials, or private workspace content.
 
-When upgrading from v0.4.0 or earlier, install the matching v0.4.1 DMG manually once. Those old versions can stage an update but cannot install this quit-path fix automatically; v0.4.1 contains the corrected path for later updates.
+When upgrading from v0.4.1 or earlier, install the matching v0.4.2 DMG manually. The real signed v0.4.1→public v0.4.2 proof accepted and transferred the verified update but timed out waiting for native install authorization, leaving v0.4.1 installed. Automatic installation is not currently claimed; include the exported diagnostics and updater error when reporting a related issue.
 
 ## 简体中文
 
@@ -24,4 +24,4 @@ When upgrading from v0.4.0 or earlier, install the matching v0.4.1 DMG manually 
 
 请提供桌面端版本、macOS 版本、CPU 架构和复现步骤。v0.4.0 或更高版本请通过托盘或 Dock 菜单的 **Export Diagnostics… / 导出诊断…** 生成报告，检查 JSON 后再附加；不要自行加入原始 Host 输出、环境变量 dump 或会话正文。不得公开 API Key、签名材料、凭据或私有工作区内容。
 
-从 v0.4.0 或更早版本升级时，请手动安装一次匹配架构的 v0.4.1 DMG。旧版本可以暂存更新，但无法自动安装这次退出路径修复；v0.4.1 已包含供后续更新使用的正确路径。
+从 v0.4.1 或更早版本升级时，请手动安装匹配架构的 v0.4.2 DMG。正式签名 v0.4.1→公开 v0.4.2 的真实证明已接受并传输校验后的更新，但等待原生安装授权超时，退出后仍安装 v0.4.1。当前不声称自动安装可用；报告相关问题时请附上导出的诊断与 updater 错误。
