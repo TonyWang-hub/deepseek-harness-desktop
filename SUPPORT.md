@@ -10,7 +10,7 @@
 - Vulnerabilities: use [private vulnerability reporting](https://github.com/TonyWang-hub/deepseek-harness-desktop/security/advisories/new).
 - Behavior reproducible in the official Web profile: report it to the DeepSeek Harness upstream project.
 
-Include the desktop version, macOS version, CPU architecture, and reproduction steps. On builds that provide it, use the tray or Dock menu's **Export Diagnostics…** action and review the JSON before attaching it; do not append raw Host output, environment dumps, or session content. Never post API keys, signing material, credentials, or private workspace content.
+Include the desktop version, macOS version, CPU architecture, and reproduction steps. On v0.4.0 or later, use the tray or Dock menu's **Export Diagnostics…** action and review the JSON before attaching it; do not append raw Host output, environment dumps, or session content. Never post API keys, signing material, credentials, or private workspace content.
 
 ## 简体中文
 
@@ -20,4 +20,4 @@ Include the desktop version, macOS version, CPU architecture, and reproduction s
 - 安全漏洞：使用 [私密漏洞报告](https://github.com/TonyWang-hub/deepseek-harness-desktop/security/advisories/new)。
 - 在官方 Web profile 中也能复现的问题：向 DeepSeek Harness 上游项目报告。
 
-请提供桌面端版本、macOS 版本、CPU 架构和复现步骤。如果当前构建提供该功能，请通过托盘或 Dock 菜单的 **Export Diagnostics… / 导出诊断…** 生成报告，检查 JSON 后再附加；不要自行加入原始 Host 输出、环境变量 dump 或会话正文。不得公开 API Key、签名材料、凭据或私有工作区内容。
+请提供桌面端版本、macOS 版本、CPU 架构和复现步骤。v0.4.0 或更高版本请通过托盘或 Dock 菜单的 **Export Diagnostics… / 导出诊断…** 生成报告，检查 JSON 后再附加；不要自行加入原始 Host 输出、环境变量 dump 或会话正文。不得公开 API Key、签名材料、凭据或私有工作区内容。

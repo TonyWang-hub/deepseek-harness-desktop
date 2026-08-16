@@ -104,7 +104,18 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - 单一状态机已接入 Host 启动、崩溃断路器、手动恢复、网络断开、更新就绪和退出；更新下载状态可跨 wake 恢复，Host readiness 支持跨输出 chunk 并拒绝旧进程异步结果。
 - macOS resume/unlock 分层恢复已通过真实 Electron 与 packaged 验收：健康 Host 只重载同一窗口，离线保持精确 PID/URL 且 crash count 为 0，不健康 Host 只产生一个替代 PID，旧 PID 与端口被回收。
 - Tray/Dock 已加入诊断导出；报告只含 allowlist 字段，真实导出文件在写入内容前即设为 `0600`，源码与 packaged 对抗测试均证明不包含 `$DSH_HOME`、socket 路径或注入 secret。
-- 最终证据：macOS 源码 `89 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke 通过、unsigned arm64 packaged acceptance `6/6`；Linux/Windows CI 在 [run 31926953834](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31926953834) 全绿，独立复审结论 `READY`。本记录不代表已签名发布 v0.4.0，版本号、正式双架构签名/公证与 Release 仍属于后续发布准备。
+- 最终开发证据：macOS 源码 `89 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke 通过、unsigned arm64 packaged acceptance `6/6`；Linux/Windows CI 在 [run 31926953834](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31926953834) 全绿，独立复审结论 `READY`。
+
+#### 2026-08-16 正式发布记录
+
+- [`v0.4.0`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.0) tag 指向 `eff0d92c4392f631d164a7160764e836c9d8e083`。受保护的 [Release run 31928757758](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31928757758) 在原生 arm64/x64 runner 完成源码测试、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG smoke 和无残留进程检查后原子发布。
+- Release 为非 draft、非 prerelease 且已设为 latest；精确十项资产包含双架构 DMG/ZIP、各自 blockmap、唯一 `latest-mac.yml` 和 `SHA256SUMS.txt`。发布后已用 GitHub 资产 SHA-256 digest 交叉核对全部九条 checksum，并确认更新 manifest 为 `0.4.0`、只包含四个双架构 DMG/ZIP payload。
+
+#### v0.4.1 — 更新安装热修复
+
+- v0.4.0 发布后的真实 v0.3.0→v0.4.0 安装测试证明：旧版可发现更新、选择正确 arm64 ZIP、验证哈希并让 Squirrel.Mac 完整下载和解压已签名应用，但明确 Quit 后仍保留旧版本。根因是 Host 异步清理完成后只调用 `app.quit()`，没有调用 updater 的明确安装入口。
+- v0.4.0 Release Notes 已加入一次性手动 DMG 安装警告。v0.4.1 在 Host 精确退出后，如已有下载完成的更新则调用 `autoUpdater.quitAndInstall()`；没有更新时保持原有 `app.quit()`，同步安装器异常会报告并安全退出。
+- 热修复必须通过 updater 单测、完整源码、fixture parity、smoke、arm64 unsigned packaged acceptance 与独立复审；随后重新执行原生 arm64/x64 签名、公证、staple、打包验收和精确十项资产发布。旧版无法反向获得修复，因此 v0.3.x/v0.4.0 用户需手动安装 v0.4.1 一次，后续版本才恢复明确的退出安装路径。
 
 ### v0.5 — Windows x64
 

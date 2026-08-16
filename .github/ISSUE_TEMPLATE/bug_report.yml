@@ -23,7 +23,7 @@ body:
     id: desktop-version
     attributes:
       label: Desktop version / 桌面端版本
-      placeholder: 0.3.0 or commit SHA
+      placeholder: 0.4.0 or commit SHA
     validations:
       required: true
   - type: input
@@ -65,7 +65,7 @@ body:
     id: diagnostics
     attributes:
       label: Exported diagnostics / 导出的诊断报告
-      description: If available, use Tray or Dock → Export Diagnostics…, review the JSON, then drag it here. Do not add raw Host output, environment dumps, or session content. / 如果构建支持，请使用托盘或 Dock → Export Diagnostics… / 导出诊断…，检查 JSON 后拖到这里。不要加入原始 Host 输出、环境变量 dump 或会话正文。
+      description: On v0.4.0 or later, use Tray or Dock → Export Diagnostics…, review the JSON, then drag it here. Do not add raw Host output, environment dumps, or session content. / v0.4.0 或更高版本请使用托盘或 Dock → Export Diagnostics… / 导出诊断…，检查 JSON 后拖到这里。不要加入原始 Host 输出、环境变量 dump 或会话正文。
   - type: textarea
     id: logs
     attributes:

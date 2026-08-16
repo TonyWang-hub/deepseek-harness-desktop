@@ -8,7 +8,9 @@ English | [简体中文](README.zh-CN.md)
 
 An unofficial macOS desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It runs the pinned, unmodified official `@deepseek-ai/dsh` Web application inside Electron and keeps the standard `$DSH_HOME`, so the desktop app and `dsh` share profiles, credentials, sessions, tools, and plugins.
 
-> **Distribution status — v0.3.0 is the latest signed and notarized macOS release.** Download only from this repository's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest), choose the native architecture, and verify the published checksum and Apple signature. The Mac Reliability work described below is complete on `main` but is not part of a signed v0.4.0 release yet; locally generated unsigned candidates remain test artifacts and must not be redistributed as official releases.
+> **Distribution status — v0.4.0 is the latest signed and notarized macOS release.** Download only from this repository's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest), choose the native architecture, and verify the published checksum and Apple signature. Locally generated unsigned candidates remain test artifacts and must not be redistributed as official releases.
+>
+> **Upgrade notice:** A real post-release test found that v0.3.x/v0.4.0 can discover, verify, and stage an update but do not complete replacement on explicit Quit. Install the matching DMG manually once. The v0.4.1 hotfix adds an explicit `quitAndInstall` path; users coming from v0.4.0 or earlier will still need the one-time manual DMG installation because the defect lives in the old app.
 
 ## Why this build
 
@@ -19,8 +21,8 @@ Community desktop clients already cover broader platforms, custom onboarding, an
 - **No first-run runtime download.** Node.js, `pnpm@11.21.0`, the official production dependency tree, ripgrep, and architecture-specific native modules are inside the application. Model and web-provider calls can still require network access; "offline payload" does not mean offline model inference.
 - **Resident desktop workflow.** Closing the window keeps the single Host and its sessions alive; the tray and macOS Dock menu reopen the same window or explicitly quit.
 - **Owned process lifetime.** The app waits for Host readiness, stops rapid crash loops after finite bounded retries with a manual recovery page, uses TERM→KILL on normal shutdown, and gives the Host a parent-lifetime pipe so a crashed desktop process does not leave it running.
-- **Wake-aware reliability on current `main`.** One desktop state machine coordinates startup, readiness, offline waiting, recovery, circuit-open, update-ready, and quitting. macOS resume/unlock reloads only the page when the Host is healthy, does not count offline transitions as crashes, and replaces an unreachable local Host without creating duplicates.
-- **Private diagnostics on current `main`.** **Export Diagnostics…** in the tray and Dock menus writes an owner-only (`0600`) allowlisted JSON self-check. It reports versions, desktop/Host state, update readiness, and bundled runtime checks without collecting sessions, Host logs, environment values, credentials, `$DSH_HOME`, or personal paths.
+- **Wake-aware reliability.** One desktop state machine coordinates startup, readiness, offline waiting, recovery, circuit-open, update-ready, and quitting. macOS resume/unlock reloads only the page when the Host is healthy, does not count offline transitions as crashes, and replaces an unreachable local Host without creating duplicates.
+- **Private diagnostics.** **Export Diagnostics…** in the tray and Dock menus writes an owner-only (`0600`) allowlisted JSON self-check. It reports versions, desktop/Host state, update readiness, and bundled runtime checks without collecting sessions, Host logs, environment values, credentials, `$DSH_HOME`, or personal paths.
 - **Behavior and artifact evidence.** CI replays a deterministic external-plugin session through direct-browser and desktop entries, including tools, approval, and an error. arm64 and x64 builds also execute the packaged Host, official plugin command, bundled Node and pnpm launchers, ripgrep, Sharp, Koffi, `node-pty`, and a real PTY before acceptance.
 
 This reduces upstream adaptation work; it does not make the shell official or guarantee that every future Harness release will package without changes.
@@ -48,7 +50,7 @@ The application uses Electron's bundled Node runtime for the Host and clears Ele
 
 ### Release availability
 
-The [latest release, v0.3.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.3.0), provides signed, notarized, and stapled macOS arm64/x64 artifacts, checksums, and update metadata. It does not yet contain the unreleased v0.4 Mac Reliability work on `main`. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
+The [latest release, v0.4.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.0), provides signed, notarized, and stapled macOS arm64/x64 artifacts, checksums, and update metadata. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
 
 ### Choose Apple Silicon or Intel
 
@@ -99,9 +101,9 @@ The public GitHub release feed provides dual-architecture update metadata. A pac
 
 A release is not update-ready until its merged `latest-mac.yml`, arm64 and x64 ZIP/DMG files, and blockmaps are published together and a real installed-version-to-new-version upgrade has passed. Source builds and smoke mode do not check for updates.
 
-## Mac Reliability on current `main`
+## Mac Reliability in v0.4.0
 
-These changes are complete and accepted in source and an unsigned arm64 package, but remain unreleased until a signed/notarized v0.4.0 is prepared:
+The signed and notarized v0.4.0 release includes these behaviors on both native Mac architectures:
 
 - On macOS resume or unlock, a healthy loopback Host keeps its exact PID and port while the same BrowserWindow reloads its page transport.
 - When macOS reports the network offline, the desktop waits and retries without restarting the Host or advancing the three-failure crash circuit.
@@ -160,7 +162,7 @@ Snapshot: 2026-08-15. This is a scope comparison, not a ranking; verify the link
 
 | Project | Published desktop assets | Payload and data | Updates | Signing and notarization evidence |
 | --- | --- | --- | --- | --- |
-| This project | [v0.3.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.3.0): macOS arm64/x64 DMG and ZIP, update metadata, and checksums | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime and production tree | Public dual-architecture release feed and Electron updater | Release workflow and downloaded DMG verified with `codesign`, Gatekeeper, and a stapled notarization ticket |
+| This project | [v0.4.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.0): macOS arm64/x64 DMG and ZIP, update metadata, and checksums | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime; wake recovery and private diagnostics | Public dual-architecture release feed and Electron updater | Release workflow and downloaded DMG verified with `codesign`, Gatekeeper, and a stapled notarization ticket |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0): macOS arm64 and Windows x64 | Electron desktop app inside a full Harness source tree; stages workspace packages; tray integration | No updater is declared in the current [desktop manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) | v0.1.0 does not document artifact trust; current source includes a separate [macOS release preflight](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7): macOS arm64/x64 and Windows x64, with update metadata | Pinned rc.6 packages plus documented [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) for desktop features; app-specific Harness data directory | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) checks installed macOS and Windows builds | The [release workflow](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) verifies macOS with `codesign`, Gatekeeper, and `stapler`; its [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) disables Windows update code-signature verification |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4): macOS arm64/x64, Windows x64, and Linux x64 | Electron, pinned official rc.6 UI, standard Harness data, tray integration | Its [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) says automatic updates are not integrated | The same README says macOS is not Apple-notarized and Windows is not commercially code-signed |
