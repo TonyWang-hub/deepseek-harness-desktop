@@ -148,10 +148,12 @@ v0.4.2 的真实失败已经把下载、架构选择、双 digest、electron-upd
 最小修复计划：
 
 1. 在 `test/updater.test.js` 先加入失败测试：wrapper `downloadPromise` 已完成但原生 `update-downloaded` 未到达时，`runAutoUpdateCheck` 不得调用 `notifyDownloaded`；原生事件到达后才通知；原生 `error`、无更新和检查失败必须清理监听器并返回有界结果。测试使用独立 `EventEmitter`，明确验证监听器注册发生在 `checkForUpdates()` 之前，覆盖缓存极速命中的竞态。
-2. 在 `src/updater.js` 让 `runAutoUpdateCheck` 接收可选 `nativeUpdateEvents` 和可注入的 native-readiness fallback。函数进入检查前注册一次性 `update-downloaded/error` 观察器，先等待 electron-updater `downloadPromise`，再等待原生 readiness；只有两层都完成后才调用 `notifyDownloaded`。无更新、错误或 staging 超时必须取消 timer、移除两个监听器并通过现有 `reportError` 报告，不得产生未处理 rejection。
+2. 在 `src/updater.js` 让 `runAutoUpdateCheck` 接收可选 `nativeUpdateEvents` 和可注入的 native-readiness fallback。函数进入检查前注册一次性 `update-downloaded/error` 观察器，同时等待 electron-updater `downloadPromise` 与原生 readiness；只有两层都完成后才调用 `notifyDownloaded`，而 readiness timeout 只在 proxy 传输完成后开始。无更新、任一层错误或 staging 超时必须取消 timer、移除两个监听器并通过现有 `reportError` 报告，不得产生未处理 rejection。
 3. 在 `src/main.js` 将 Electron 原生 `autoUpdater` 作为 readiness event source 传入。`downloadedUpdateVersion`、桌面 `updating` 状态和系统通知因此只代表原生可安装，而不是 proxy 传输完成。staging 未完成前的用户退出继续走普通 Host 精确关闭；ready 后保留现有 `quitAndInstall()`、`before-quit-for-update` 授权、异步错误与五分钟安全回退。
 4. 依次运行 `node --test test/updater.test.js`、`npm test`、`npm run test:fixture-parity`、`npm run smoke`、`HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:arm64`、unsigned packaged acceptance、无残留检查和 `git diff --check`；独立复审必须检查事件顺序、缓存命中竞态、listener/timer cleanup、用户提前退出与重复事件幂等性。
 5. 测试与复审通过后才把 package/lock/release contract 更新为 `0.4.3`，候选 CI 全绿后创建不可移动 tag，并通过受保护双原生 workflow 完成签名、公证、staple、packaged/DMG 验收和精确十项资产发布。v0.4.2 及更早应用不包含 readiness 修复，Release Notes 与双语文档必须要求手动安装 v0.4.3 DMG；不得声称 v0.4.2 能自动获得修复。
+
+实现证据：TDD 先以五项失败回归锁定 proxy-complete/native-ready 边界，再补充 pending transfer 期间 native error 的失败优先测试；最终 updater focused `15/15`、完整源码 `109 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke、unsigned arm64 packaged acceptance `6/6` 与无残留检查均通过。独立复审覆盖 `3b97c67..217d6e4`，确认双完成门、cache-fast 竞态、错误/timeout/listener cleanup 与同步 `before-quit-for-update` 握手均无 Critical/Important 问题，结论 `READY`；依赖与官方 DSH 载荷相对 v0.4.2 未变。
 
 #### v0.4.4 — Native Readiness Proof
 
