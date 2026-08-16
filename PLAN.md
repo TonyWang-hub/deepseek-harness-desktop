@@ -119,6 +119,20 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 - [`v0.4.1`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1) tag 指向 `54ff7bf77425292d99c38b0c32a21d1fd92f427f`。受保护的 [Release run 31936398284](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31936398284) 在原生 arm64/x64 runner 分别用 9m6s/15m10s 完成源码、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG 与无残留检查，release job 随后原子发布。
 - v0.4.1 为非 draft、非 prerelease 且已设为 latest；发布后的精确十项资产、九条 `SHA256SUMS.txt` checksum 与 GitHub 资产 digest 全部一致，合并 `latest-mac.yml` 为 `0.4.1` 且只列出四个双架构 DMG/ZIP payload。旧版无法反向获得修复，因此 v0.3.x/v0.4.0 用户需手动安装 v0.4.1 一次，后续版本才使用已修复的明确退出安装路径。
 
+#### v0.4.2 — Updater Proof
+
+v0.4.2 是进入 Windows 前的最小证明版本：只允许修改桌面版本、公开升级验收工具、对应测试和发布说明；不得加入产品功能、依赖升级、上游 patch、`$DSH_HOME` 迁移或官方 `@deepseek-ai/dsh@0.1.0-rc.6` 载荷变化。
+
+执行顺序：
+
+1. 以 TDD 新增 `acceptance/public-update.js` 与 `test/public-update.test.js`。CLI 必须显式接收标准 `/Applications/DeepSeek Harness Desktop.app`、来源/目标版本、已下载目标 ZIP、公开 SHA-256 和隔离 runtime 根；先验证来源版本与 ZIP，再生成 electron-updater 所需 SHA-512 cache，启动来源应用并通过私有 acceptance socket 等待 Host ready 和 `updating`，明确 Quit 后等待 bundle 原位变为目标版本与自动重启 Host ready，最后再次 Quit 并证明 PID/端口释放。任何参数、校验、状态或超时不满足都 fail closed。
+2. 先提交验收工具，再以失败优先测试把 package/lock/release contract 更新为 `0.4.2`；完整运行 `npm test`、fixture parity、source smoke、unsigned arm64 packaged acceptance、diff check 与独立复审。只有候选 CI 全绿后才推送不可移动的 `v0.4.2` annotated tag。
+3. 受保护 Release workflow 必须继续在原生 arm64/x64 runner 完成源码、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG、无残留检查和精确十项资产原子发布；发布后交叉核验九条 checksum、GitHub asset digest 与四个 manifest payload。
+4. 真实升级只能在公开 v0.4.2 feed 存在后执行。测试前临时备份用户当前 `/Applications` 应用和 bundle-id Squirrel cache，保持用户 `$DSH_HOME` 完全不变；在标准路径安装正式 v0.4.1，并使用隔离 `HOME`、Electron user-data 与 DSH data 运行验收。验收后无论成功失败都终止测试进程、删除测试 cache/下载，并恢复原应用与 cache。
+5. 成功条件：正式 v0.4.1 从公开 feed 识别并校验 v0.4.2，走 `before-quit-for-update` 授权后原位替换，自动重启为 v0.4.2 且 Host ready；更新后的应用通过 `codesign --verify --deep --strict`、Gatekeeper 与 `stapler validate`，最终退出后无 Host、端口或测试应用残留。成功后才在 README/SUPPORT/本 PLAN 声明真实公开升级已证明并进入 v0.5。
+
+失败策略：v0.4.2 一旦公开绝不移动或重建 tag/Release。真实升级任一步失败时，立即在 v0.4.2 Release Notes 与 README 加入明确警告，不得声称 updater 已证明；修复必须使用新版本号（最早 v0.4.3）。
+
 ### v0.5 — Windows x64
 
 - 在原生 Windows x64 runner 上执行独立干净安装，提供 Windows runtime/pnpm 启动器和可靠的 Host 进程树终止。
