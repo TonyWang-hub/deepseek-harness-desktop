@@ -205,6 +205,74 @@ test('repeated Host spawn errors open the recovery circuit without crashing Elec
   }
 })
 
+test('macOS resume distinguishes page, network, and Host recovery', { timeout: 120_000 }, async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-resume-'))
+  const socketPath = path.join(testRoot, 'control.sock')
+  const desktop = launch([], testRoot, { DSH_DESKTOP_ACCEPTANCE_SOCKET: socketPath })
+  let latestUrl
+  try {
+    const initial = await waitUntil(async () => {
+      try {
+        const snapshot = await control(socketPath, 'snapshot')
+        return snapshot.desktopState === 'ready'
+          && snapshot.hostUrl
+          && snapshot.pageLoadCount >= 2
+          && snapshot.windowUrl.startsWith(snapshot.hostUrl)
+          ? snapshot
+          : undefined
+      } catch {
+        return undefined
+      }
+    }, 'resume acceptance Host readiness', 20_000)
+    latestUrl = initial.hostUrl
+
+    await control(socketPath, 'resume')
+    const reloaded = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'ready' && snapshot.pageLoadCount > initial.pageLoadCount
+        ? snapshot
+        : undefined
+    }, 'page-only wake recovery', 15_000)
+    assert.equal(reloaded.windowId, initial.windowId)
+    assert.equal(reloaded.hostPid, initial.hostPid)
+    assert.equal(reloaded.hostUrl, initial.hostUrl)
+
+    await control(socketPath, 'offline-resume')
+    const offline = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'disconnected' ? snapshot : undefined
+    }, 'offline wait state', 10_000)
+    assert.equal(offline.hostPid, initial.hostPid)
+    assert.equal(offline.hostUrl, initial.hostUrl)
+
+    await control(socketPath, 'online')
+    const online = await control(socketPath, 'snapshot')
+    assert.equal(online.desktopState, 'ready')
+    assert.equal(online.hostPid, initial.hostPid)
+    assert.equal(online.hostUrl, initial.hostUrl)
+
+    await control(socketPath, 'unhealthy-resume')
+    const restarted = await waitUntil(async () => {
+      const snapshot = await control(socketPath, 'snapshot')
+      return snapshot.desktopState === 'ready'
+        && snapshot.hostPid !== initial.hostPid
+        && snapshot.hostUrl !== initial.hostUrl
+        ? snapshot
+        : undefined
+    }, 'unhealthy Host replacement', 20_000)
+    latestUrl = restarted.hostUrl
+    assert.equal(restarted.windowId, initial.windowId)
+    assert.equal(processExists(initial.hostPid), false)
+
+    await control(socketPath, 'quit')
+    assert.equal((await waitForExit(desktop.child)).code, 0, desktop.output())
+    await assert.rejects(fetch(latestUrl))
+  } finally {
+    await stopProcessTree(desktop.child)
+    await rm(testRoot, { recursive: true, force: true })
+  }
+})
+
 test('real window residency, tray restore, crash circuit, retry, and quit share one Host lifecycle', { timeout: 120_000 }, async () => {
   const testRoot = await mkdtemp(path.join(tmpdir(), 'dsh-desktop-resident-'))
   const socketPath = path.join(testRoot, 'control.sock')

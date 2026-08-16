@@ -12,13 +12,27 @@
  * DSH_DESKTOP_NODE=/path/to/node to run the host on an external runtime
  * instead — the smoke run is where such a mismatch shows up first.
  */
-import { app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  nativeImage,
+  net as electronNet,
+  Notification,
+  powerMonitor,
+  shell,
+  Tray,
+} from 'electron'
 import electronUpdater from 'electron-updater'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 import { installAcceptanceControl } from './acceptance-control.js'
+import {
+  createConnectionRecovery,
+  installMacConnectionRecovery,
+} from './connection-recovery.js'
 import {
   createCrashPage,
   createCrashRecovery,
@@ -80,6 +94,10 @@ let quitting = false
 let quitReady = false
 let quitPromise
 let hostStopPromise
+let removeMacConnectionRecovery
+let acceptanceOnlineOverride
+let acceptanceForceProbeFailure = false
+let pageLoadCount = 0
 
 /** Minimal splash shown until the host's readiness line arrives. */
 const SPLASH = 'data:text/html,' + encodeURIComponent(
@@ -188,6 +206,37 @@ function stopHost() {
   return hostStopPromise
 }
 
+async function probeCurrentHost() {
+  if (acceptanceForceProbeFailure) {
+    acceptanceForceProbeFailure = false
+    return false
+  }
+  if (!hostUrl) return false
+  const response = await electronNet.fetch(hostUrl, { signal: AbortSignal.timeout(3000) })
+  return response.ok
+}
+
+async function reloadCurrentPage() {
+  if (win && hostUrl) await win.loadURL(hostUrl)
+}
+
+async function restartUnhealthyHost() {
+  if (quitting || desktopState.get().name === 'circuit-open') return
+  hostUrl = ''
+  recoveryPageUrl = ''
+  await stopHost()
+  if (!quitting) startHost()
+}
+
+const connectionRecovery = createConnectionRecovery({
+  state: desktopState,
+  isOnline: () => acceptanceOnlineOverride ?? electronNet.isOnline(),
+  hasHostTarget: () => Boolean(host?.pid && hostUrl),
+  probeHost: probeCurrentHost,
+  reloadPage: reloadCurrentPage,
+  restartHost: restartUnhealthyHost,
+})
+
 function exitAfterHost(code) {
   if (quitPromise) return quitPromise
   quitting = true
@@ -220,6 +269,7 @@ function createWindow() {
   installWindowResidency({ window: win, isQuitting: () => quitting })
   win.on('closed', () => { win = undefined })
   win.webContents.on('did-finish-load', () => {
+    pageLoadCount += 1
     if (SMOKE && hostUrl && win?.webContents.getURL().startsWith(hostUrl)) {
       console.log('SMOKE OK', hostUrl)
       void exitAfterHost(0)
@@ -265,13 +315,20 @@ if (!lock) {
         quit: () => app.quit(),
       })
     }
+    removeMacConnectionRecovery = installMacConnectionRecovery({
+      platform: process.platform,
+      powerMonitor,
+      recover: connectionRecovery.recover,
+    })
     acceptanceControl = installAcceptanceControl({
       socketPath: process.env.DSH_DESKTOP_ACCEPTANCE_SOCKET,
       handlers: {
         snapshot: () => ({
           windowVisible: win?.isVisible() ?? false,
           windowId: win?.id,
+          windowUrl: win?.webContents.getURL(),
           desktopState: desktopState.get().name,
+          pageLoadCount,
           hostPid: host?.pid,
           hostUrl,
           recoveryOpen: Boolean(
@@ -282,6 +339,20 @@ if (!lock) {
         'tray-open': () => {
           if (!tray) throw new Error('Tray is not installed')
           tray.emit('click')
+        },
+        resume: () => powerMonitor.emit('resume'),
+        'offline-resume': () => {
+          acceptanceOnlineOverride = false
+          powerMonitor.emit('resume')
+        },
+        online: () => {
+          acceptanceOnlineOverride = true
+          return connectionRecovery.recover('acceptance-online')
+        },
+        'unhealthy-resume': () => {
+          acceptanceOnlineOverride = true
+          acceptanceForceProbeFailure = true
+          return connectionRecovery.recover('acceptance-unhealthy')
         },
         'crash-host': () => {
           if (!host?.pid) throw new Error('Host is not running')
@@ -323,6 +394,9 @@ if (!lock) {
     event.preventDefault()
     quitting = true
     desktopState.transition('quitting')
+    removeMacConnectionRecovery?.()
+    removeMacConnectionRecovery = undefined
+    connectionRecovery.dispose()
     acceptanceControl?.close()
     acceptanceControl = undefined
     if (quitPromise) return
