@@ -114,8 +114,10 @@ package.json    electron + @deepseek-ai/dsh（版本钉死）
 #### v0.4.1 — 更新安装热修复
 
 - v0.4.0 发布后的真实 v0.3.0→v0.4.0 安装测试证明：旧版可发现更新、选择正确 arm64 ZIP、验证哈希并让 Squirrel.Mac 完整下载和解压已签名应用，但明确 Quit 后仍保留旧版本。根因是 Host 异步清理完成后只调用 `app.quit()`，没有调用 updater 的明确安装入口。
-- v0.4.0 Release Notes 已加入一次性手动 DMG 安装警告。v0.4.1 在 Host 精确退出后，如已有下载完成的更新则调用 `autoUpdater.quitAndInstall()`；没有更新时保持原有 `app.quit()`，同步安装器异常会报告并安全退出。
-- 热修复必须通过 updater 单测、完整源码、fixture parity、smoke、arm64 unsigned packaged acceptance 与独立复审；随后重新执行原生 arm64/x64 签名、公证、staple、打包验收和精确十项资产发布。旧版无法反向获得修复，因此 v0.3.x/v0.4.0 用户需手动安装 v0.4.1 一次，后续版本才恢复明确的退出安装路径。
+- v0.4.0 Release Notes 已加入一次性手动 DMG 安装警告。v0.4.1 在 Host 精确退出后，如已有下载完成的更新则调用 `autoUpdater.quitAndInstall()`，并继续拦截普通退出，直到 Electron 发出 `before-quit-for-update` 原生授权；同步/异步安装器异常或五分钟授权超时会报告并安全退出，没有更新时保持原有退出行为。
+- 热修复开发证据：完整源码 `93 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke、unsigned arm64 packaged acceptance `6/6` 全部通过；候选 [CI run 31936293512](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31936293512) 全绿。独立复审先发现并阻断 deferred Squirrel 竞态，补充原生授权、异步错误与超时测试后复审结论为 `READY`。
+- [`v0.4.1`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1) tag 指向 `54ff7bf77425292d99c38b0c32a21d1fd92f427f`。受保护的 [Release run 31936398284](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31936398284) 在原生 arm64/x64 runner 分别用 9m6s/15m10s 完成源码、fixture parity、Developer ID 签名、Apple 公证、staple、packaged acceptance、挂载 DMG 与无残留检查，release job 随后原子发布。
+- v0.4.1 为非 draft、非 prerelease 且已设为 latest；发布后的精确十项资产、九条 `SHA256SUMS.txt` checksum 与 GitHub 资产 digest 全部一致，合并 `latest-mac.yml` 为 `0.4.1` 且只列出四个双架构 DMG/ZIP payload。旧版无法反向获得修复，因此 v0.3.x/v0.4.0 用户需手动安装 v0.4.1 一次，后续版本才使用已修复的明确退出安装路径。
 
 ### v0.5 — Windows x64
 

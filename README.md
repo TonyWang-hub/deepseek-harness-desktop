@@ -8,9 +8,9 @@ English | [简体中文](README.zh-CN.md)
 
 An unofficial macOS desktop shell for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It runs the pinned, unmodified official `@deepseek-ai/dsh` Web application inside Electron and keeps the standard `$DSH_HOME`, so the desktop app and `dsh` share profiles, credentials, sessions, tools, and plugins.
 
-> **Distribution status — v0.4.0 is the latest signed and notarized macOS release.** Download only from this repository's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest), choose the native architecture, and verify the published checksum and Apple signature. Locally generated unsigned candidates remain test artifacts and must not be redistributed as official releases.
+> **Distribution status — v0.4.1 is the latest signed and notarized macOS release.** Download only from this repository's [latest release](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/latest), choose the native architecture, and verify the published checksum and Apple signature. Locally generated unsigned candidates remain test artifacts and must not be redistributed as official releases.
 >
-> **Upgrade notice:** A real post-release test found that v0.3.x/v0.4.0 can discover, verify, and stage an update but do not complete replacement on explicit Quit. Install the matching DMG manually once. The v0.4.1 hotfix adds an explicit `quitAndInstall` path; users coming from v0.4.0 or earlier will still need the one-time manual DMG installation because the defect lives in the old app.
+> **Upgrade notice:** A real post-release test found that v0.3.x/v0.4.0 can discover, verify, and stage an update but do not complete replacement on explicit Quit. Install the matching v0.4.1 DMG manually once. v0.4.1 adds the explicit `quitAndInstall` path; users coming from v0.4.0 or earlier still need this one-time manual DMG installation because the defect lives in the old app.
 
 ## Why this build
 
@@ -50,7 +50,7 @@ The application uses Electron's bundled Node runtime for the Host and clears Ele
 
 ### Release availability
 
-The [latest release, v0.4.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.0), provides signed, notarized, and stapled macOS arm64/x64 artifacts, checksums, and update metadata. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
+The [latest release, v0.4.1](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1), provides signed, notarized, and stapled macOS arm64/x64 artifacts, checksums, and update metadata. Repositories with similar names publish independent community builds with different code, data paths, update policies, and signing status.
 
 ### Choose Apple Silicon or Intel
 
@@ -99,7 +99,9 @@ All commands must exit successfully. Gatekeeper should report an accepted Develo
 
 The public GitHub release feed provides dual-architecture update metadata. A packaged production app performs one non-blocking check after launch. If an update is available, it waits for the download and notifies the user that installation will occur when the app exits; network or feed errors are reported without blocking Harness startup.
 
-A release is not update-ready until its merged `latest-mac.yml`, arm64 and x64 ZIP/DMG files, and blockmaps are published together and a real installed-version-to-new-version upgrade has passed. Source builds and smoke mode do not check for updates.
+v0.4.1 explicitly calls the updater install path after exact Host shutdown, keeps ordinary quits intercepted until Electron authorizes the native Squirrel update, and falls back to a reported safe quit on error or bounded timeout. Because v0.4.0 and earlier do not contain that code, install the v0.4.1 DMG manually once when upgrading from those versions. Source builds and smoke mode do not check for updates.
+
+A release feed is published only after its merged `latest-mac.yml`, arm64 and x64 ZIP/DMG files, and blockmaps pass exact-inventory, checksum, signing, notarization, stapling, packaged-acceptance, and mounted-DMG gates together.
 
 ## Mac Reliability in v0.4.0
 
@@ -162,7 +164,7 @@ Snapshot: 2026-08-15. This is a scope comparison, not a ranking; verify the link
 
 | Project | Published desktop assets | Payload and data | Updates | Signing and notarization evidence |
 | --- | --- | --- | --- | --- |
-| This project | [v0.4.0](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.0): macOS arm64/x64 DMG and ZIP, update metadata, and checksums | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime; wake recovery and private diagnostics | Public dual-architecture release feed and Electron updater | Release workflow and downloaded DMG verified with `codesign`, Gatekeeper, and a stapled notarization ticket |
+| This project | [v0.4.1](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.1): macOS arm64/x64 DMG and ZIP, update metadata, and checksums | Pinned, unmodified npm payload; standard `$DSH_HOME`; bundled runtime; wake recovery and private diagnostics | Public dual-architecture release feed; explicit native install-on-quit from v0.4.1 | Release workflow verifies `codesign`, Gatekeeper, a stapled notarization ticket, packaged acceptance, and mounted DMGs |
 | [anywhere-labs/deepseek-harness-desktop](https://github.com/anywhere-labs/deepseek-harness-desktop) | [v0.1.0](https://github.com/anywhere-labs/deepseek-harness-desktop/releases/tag/v0.1.0): macOS arm64 and Windows x64 | Electron desktop app inside a full Harness source tree; stages workspace packages; tray integration | No updater is declared in the current [desktop manifest](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/package.json) | v0.1.0 does not document artifact trust; current source includes a separate [macOS release preflight](https://github.com/anywhere-labs/deepseek-harness-desktop/blob/master/apps/desktop/scripts/release-preflight.ts) |
 | [dataelement/dsh-desktop](https://github.com/dataelement/dsh-desktop) | [v0.1.7](https://github.com/dataelement/dsh-desktop/releases/tag/v0.1.7): macOS arm64/x64 and Windows x64, with update metadata | Pinned rc.6 packages plus documented [`patch-package` overlays](https://github.com/dataelement/dsh-desktop/tree/main/patches) for desktop features; app-specific Harness data directory | [Electron updater](https://github.com/dataelement/dsh-desktop/blob/main/src/main/update/update-manager.ts) checks installed macOS and Windows builds | The [release workflow](https://github.com/dataelement/dsh-desktop/blob/main/.github/workflows/release.yml) verifies macOS with `codesign`, Gatekeeper, and `stapler`; its [manifest](https://github.com/dataelement/dsh-desktop/blob/main/package.json) disables Windows update code-signature verification |
 | [steven-kid/deepseek-harness-desktop](https://github.com/steven-kid/deepseek-harness-desktop) | [v0.3.4](https://github.com/steven-kid/deepseek-harness-desktop/releases/tag/v0.3.4): macOS arm64/x64, Windows x64, and Linux x64 | Electron, pinned official rc.6 UI, standard Harness data, tray integration | Its [README](https://github.com/steven-kid/deepseek-harness-desktop#known-limitations) says automatic updates are not integrated | The same README says macOS is not Apple-notarized and Windows is not commercially code-signed |

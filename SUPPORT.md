@@ -12,6 +12,8 @@
 
 Include the desktop version, macOS version, CPU architecture, and reproduction steps. On v0.4.0 or later, use the tray or Dock menu's **Export Diagnostics…** action and review the JSON before attaching it; do not append raw Host output, environment dumps, or session content. Never post API keys, signing material, credentials, or private workspace content.
 
+When upgrading from v0.4.0 or earlier, install the matching v0.4.1 DMG manually once. Those old versions can stage an update but cannot install this quit-path fix automatically; v0.4.1 contains the corrected path for later updates.
+
 ## 简体中文
 
 - 使用问题、安装帮助和使用想法：[GitHub Discussions](https://github.com/TonyWang-hub/deepseek-harness-desktop/discussions)。
@@ -21,3 +23,5 @@ Include the desktop version, macOS version, CPU architecture, and reproduction s
 - 在官方 Web profile 中也能复现的问题：向 DeepSeek Harness 上游项目报告。
 
 请提供桌面端版本、macOS 版本、CPU 架构和复现步骤。v0.4.0 或更高版本请通过托盘或 Dock 菜单的 **Export Diagnostics… / 导出诊断…** 生成报告，检查 JSON 后再附加；不要自行加入原始 Host 输出、环境变量 dump 或会话正文。不得公开 API Key、签名材料、凭据或私有工作区内容。
+
+从 v0.4.0 或更早版本升级时，请手动安装一次匹配架构的 v0.4.1 DMG。旧版本可以暂存更新，但无法自动安装这次退出路径修复；v0.4.1 已包含供后续更新使用的正确路径。
