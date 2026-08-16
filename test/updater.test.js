@@ -95,6 +95,30 @@ test('a cache-fast native readiness event is retained until transfer completion'
   assert.deepEqual(notifications, ['0.4.3'])
 })
 
+test('a native updater error fails immediately while proxy transfer is pending', async () => {
+  const transfer = deferred()
+  const nativeUpdateEvents = new EventEmitter()
+  const failure = new Error('native updater rejected the feed')
+  let reported
+  const checking = runAutoUpdateCheck({
+    isPackaged: true,
+    isSmoke: false,
+    checkForUpdates: async () => ({
+      updateInfo: { version: '0.4.3' },
+      downloadPromise: transfer.promise,
+    }),
+    notifyDownloaded: () => assert.fail('unexpected update notification'),
+    reportError: error => { reported = error },
+    nativeUpdateEvents,
+  })
+
+  await nextTurn()
+  nativeUpdateEvents.emit('error', failure)
+  await nextTurn()
+  assert.equal(reported, failure)
+  assert.equal(await checking, false)
+})
+
 test('a native updater error before readiness never exposes the update', async () => {
   const nativeUpdateEvents = new EventEmitter()
   const failure = new Error('native staging failed')

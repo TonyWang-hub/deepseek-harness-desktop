@@ -81,10 +81,13 @@ export async function runAutoUpdateCheck({
   try {
     const result = await checkForUpdates()
     if (result?.downloadPromise) {
-      await result.downloadPromise
       if (nativeReady) {
-        nativeReady.armFallback(scheduleReadyFallback)
-        await nativeReady.ready
+        await Promise.all([
+          result.downloadPromise.then(() => nativeReady.armFallback(scheduleReadyFallback)),
+          nativeReady.ready,
+        ])
+      } else {
+        await result.downloadPromise
       }
       notifyDownloaded(result.updateInfo)
     }
