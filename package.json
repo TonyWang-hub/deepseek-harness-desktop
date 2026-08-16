@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-desktop",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "description": "Unofficial Electron shell for DeepSeek Harness — the pinned official payload, a supervised host, one window.",
   "type": "module",
