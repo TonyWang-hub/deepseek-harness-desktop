@@ -23,7 +23,7 @@ body:
     id: desktop-version
     attributes:
       label: Desktop version / 桌面端版本
-      placeholder: 0.4.3 or commit SHA
+      placeholder: 0.4.4 or commit SHA
     validations:
       required: true
   - type: input

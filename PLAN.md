@@ -155,6 +155,8 @@ v0.4.2 的真实失败已经把下载、架构选择、双 digest、electron-upd
 
 实现证据：TDD 先以五项失败回归锁定 proxy-complete/native-ready 边界，再补充 pending transfer 期间 native error 的失败优先测试；最终 updater focused `15/15`、完整源码 `109 passed / 1 Windows-only skip`、fixture parity `1/1`、source smoke、unsigned arm64 packaged acceptance `6/6` 与无残留检查均通过。独立复审覆盖 `3b97c67..217d6e4`，确认双完成门、cache-fast 竞态、错误/timeout/listener cleanup 与同步 `before-quit-for-update` 握手均无 Critical/Important 问题，结论 `READY`；依赖与官方 DSH 载荷相对 v0.4.2 未变。
 
+发布证据：候选 [CI run 31953022660](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31953022660) 全绿后，[`v0.4.3`](https://github.com/TonyWang-hub/deepseek-harness-desktop/releases/tag/v0.4.3) annotated tag 固定指向 `69d4b1388926bf0df0d463aa7f3868969f5061f4`。受保护的 [Release run 31953120002](https://github.com/TonyWang-hub/deepseek-harness-desktop/actions/runs/31953120002) 在原生 arm64/x64 runner 分别用 10m31s/23m56s 完成全部签名、公证、staple、packaged/DMG 与无残留门，release job 用 1m48s 原子发布；公开 Release 为非 draft、非 prerelease，精确十项资产、九条 checksum、GitHub asset digest 与 `latest-mac.yml` 四项 `0.4.3` payload 全部一致。Release Notes 明确要求 v0.4.2 及更早版本手动安装，并保持 v0.4.3→v0.4.4 证明待完成状态。
+
 #### v0.4.4 — Native Readiness Proof
 
 v0.4.3 发布后立即准备只改版本、测试契约和说明的 v0.4.4；不得加入产品功能、依赖或官方 DSH 载荷变化。完成全部本地门、候选 CI 与双原生签名公证发布后，使用 `acceptance/public-update.js` 在标准 `/Applications` 路径执行正式签名 v0.4.3→公开 v0.4.4：必须证明公开双 digest cache 命中、原生 `update-downloaded` 后才进入 `updating`、明确 Quit 收到 `before-quit-for-update`、bundle 原位替换并自动重启 v0.4.4 Host ready、三项信任门通过且最终无应用/Host/端口残留。
