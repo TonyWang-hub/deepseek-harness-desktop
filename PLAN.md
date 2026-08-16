@@ -141,6 +141,24 @@ v0.4.2 是进入 Windows 前的最小证明版本：只允许修改桌面版本�
 - **真实正式 v0.4.1→公开 v0.4.2 原位升级证明失败。** 来源应用成功发现 v0.4.2、选择 arm64 ZIP、同时匹配公开 SHA-256/SHA-512、接受预置 cache、经本地 proxy 完整写入原生 ShipIt cache 并进入 `updating`；明确 Quit 后五分钟内仍未收到 `before-quit-for-update`，安全回退报告 `Timed out waiting for the native updater to authorize quit`，bundle 保持 v0.4.1。Release Notes 与双语 README 已立即加入手动安装 v0.4.2 DMG 警告；tag/资产保持不可变，修复进入最早 v0.4.3，暂不进入 v0.5。
 - 证明前临时备份的用户 v0.2.0 应用与全部 updater/Squirrel cache 已恢复，用户 `$DSH_HOME` 从未修改；测试应用、Host 和挂载点均无残留。首次前台执行因十分钟外部执行上限被终止，检查并手动完整恢复后才以托管后台作业重跑；最终失败来自应用内五分钟原生授权超时，而非下载、hash、cache、网络发现或验收工具超时。
 
+#### v0.4.3 — Native Readiness 热修复
+
+v0.4.2 的真实失败已经把下载、架构选择、双 digest、electron-updater cache、本地 proxy 与 ShipIt 写入排除为根因。日志显示桌面在 electron-updater `downloadPromise` 完成时过早进入 `updating` 并允许 Quit；此时原生 Squirrel 只完成了 ZIP 传输，尚未发出 Electron `autoUpdater` 的 `update-downloaded` 可安装信号。`quitAndInstall()` 因而只能等待尚未完成的原生 staging，最终触发五分钟安全回退。
+
+最小修复计划：
+
+1. 在 `test/updater.test.js` 先加入失败测试：wrapper `downloadPromise` 已完成但原生 `update-downloaded` 未到达时，`runAutoUpdateCheck` 不得调用 `notifyDownloaded`；原生事件到达后才通知；原生 `error`、无更新和检查失败必须清理监听器并返回有界结果。测试使用独立 `EventEmitter`，明确验证监听器注册发生在 `checkForUpdates()` 之前，覆盖缓存极速命中的竞态。
+2. 在 `src/updater.js` 让 `runAutoUpdateCheck` 接收可选 `nativeUpdateEvents` 和可注入的 native-readiness fallback。函数进入检查前注册一次性 `update-downloaded/error` 观察器，先等待 electron-updater `downloadPromise`，再等待原生 readiness；只有两层都完成后才调用 `notifyDownloaded`。无更新、错误或 staging 超时必须取消 timer、移除两个监听器并通过现有 `reportError` 报告，不得产生未处理 rejection。
+3. 在 `src/main.js` 将 Electron 原生 `autoUpdater` 作为 readiness event source 传入。`downloadedUpdateVersion`、桌面 `updating` 状态和系统通知因此只代表原生可安装，而不是 proxy 传输完成。staging 未完成前的用户退出继续走普通 Host 精确关闭；ready 后保留现有 `quitAndInstall()`、`before-quit-for-update` 授权、异步错误与五分钟安全回退。
+4. 依次运行 `node --test test/updater.test.js`、`npm test`、`npm run test:fixture-parity`、`npm run smoke`、`HARNESS_DESKTOP_ALLOW_UNSIGNED=1 npm run dist:mac:arm64`、unsigned packaged acceptance、无残留检查和 `git diff --check`；独立复审必须检查事件顺序、缓存命中竞态、listener/timer cleanup、用户提前退出与重复事件幂等性。
+5. 测试与复审通过后才把 package/lock/release contract 更新为 `0.4.3`，候选 CI 全绿后创建不可移动 tag，并通过受保护双原生 workflow 完成签名、公证、staple、packaged/DMG 验收和精确十项资产发布。v0.4.2 及更早应用不包含 readiness 修复，Release Notes 与双语文档必须要求手动安装 v0.4.3 DMG；不得声称 v0.4.2 能自动获得修复。
+
+#### v0.4.4 — Native Readiness Proof
+
+v0.4.3 发布后立即准备只改版本、测试契约和说明的 v0.4.4；不得加入产品功能、依赖或官方 DSH 载荷变化。完成全部本地门、候选 CI 与双原生签名公证发布后，使用 `acceptance/public-update.js` 在标准 `/Applications` 路径执行正式签名 v0.4.3→公开 v0.4.4：必须证明公开双 digest cache 命中、原生 `update-downloaded` 后才进入 `updating`、明确 Quit 收到 `before-quit-for-update`、bundle 原位替换并自动重启 v0.4.4 Host ready、三项信任门通过且最终无应用/Host/端口残留。
+
+证明期间继续完整备份并恢复用户 v0.2.0、electron-updater/Squirrel cache，绝不修改 `$DSH_HOME`。成功后才移除自动安装警告并恢复 v0.5；失败则保持 v0.4.3/v0.4.4 tag 与资产不可变，立即发布手动安装警告并使用新版本号（最早 v0.4.5）继续修复。
+
 ### v0.5 — Windows x64
 
 - 在原生 Windows x64 runner 上执行独立干净安装，提供 Windows runtime/pnpm 启动器和可靠的 Host 进程树终止。
