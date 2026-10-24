@@ -29,7 +29,7 @@
     "pnpm": "11.21.0"
   },
   "devDependencies": {
-    "electron": "43.4.0",
+    "electron": "43.8.1",
     "electron-builder": "26.15.3",
     "js-yaml": "4.3.1",
     "playwright-core": "1.62.1"
